@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GitWrapper } from '../../src/infrastructure/git.ts';
 import { NpmWrapper } from '../../src/infrastructure/npm.ts';
+import { ProcessRunner } from '../../src/infrastructure/process.ts';
 import { preflight } from '../../src/logic/preflight.ts';
 
 const CHANGELOG = ['# Changelog', '', '## 0.5.0', '', '- **A thing.** (#160)', ''].join('\n');
@@ -12,7 +13,8 @@ const runPreflight = ({
   pkg = 'ekolite',
   git = GitWrapper.createNull(),
   lockfile = '{}',
-} = {}) => preflight({ version, changelog, npm, pkg, git, lockfile });
+  runner = ProcessRunner.createNull(),
+} = {}) => preflight({ version, changelog, npm, pkg, git, lockfile, runner });
 
 describe('preflight', () => {
   it('fails the changelog check when the version has no entry', async () => {
@@ -70,6 +72,20 @@ describe('preflight', () => {
       name: 'lockfile registry',
       passed: false,
       reason: 'lockfile resolves packages outside registry.npmjs.org',
+    });
+  });
+
+  it('fails the smoke check when the package smoke fails', async () => {
+    const runner = ProcessRunner.createNull({
+      commands: { 'npm run test:package': { exitCode: 1 } },
+    });
+
+    const report = await runPreflight({ runner });
+
+    expect(report.checks).toContainEqual({
+      name: 'package smoke',
+      passed: false,
+      reason: 'npm run test:package failed',
     });
   });
 });
