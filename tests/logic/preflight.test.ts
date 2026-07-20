@@ -11,7 +11,8 @@ const runPreflight = ({
   npm = NpmWrapper.createNull(),
   pkg = 'ekolite',
   git = GitWrapper.createNull(),
-} = {}) => preflight({ version, changelog, npm, pkg, git });
+  lockfile = '{}',
+} = {}) => preflight({ version, changelog, npm, pkg, git, lockfile });
 
 describe('preflight', () => {
   it('fails the changelog check when the version has no entry', async () => {
@@ -57,6 +58,18 @@ describe('preflight', () => {
       name: 'clean working tree',
       passed: false,
       reason: 'uncommitted changes in the working tree',
+    });
+  });
+
+  it('fails the lockfile check when a tarball resolves to a mirror registry', async () => {
+    const lockfile = '{ "resolved": "https://registry.npmmirror.com/ws/-/ws-8.20.1.tgz" }';
+
+    const report = await runPreflight({ lockfile });
+
+    expect(report.checks).toContainEqual({
+      name: 'lockfile registry',
+      passed: false,
+      reason: 'lockfile resolves packages outside registry.npmjs.org',
     });
   });
 });
