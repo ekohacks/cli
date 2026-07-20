@@ -21,12 +21,14 @@ export const preflight = async ({
   npm,
   pkg,
   git,
+  lockfile,
 }: {
   version: string;
   changelog: string;
   npm: NpmWrapper;
   pkg: string;
   git: GitWrapper;
+  lockfile: string;
 }): Promise<PreflightReport> => {
   const entry = changelogEntryFor(changelog, version);
   const changelogCheck: PreflightCheck =
@@ -59,5 +61,13 @@ export const preflight = async ({
         reason: 'uncommitted changes in the working tree',
       };
 
-  return { checks: [changelogCheck, versionCheck, branchCheck, treeCheck] };
+  const lockfileCheck: PreflightCheck = lockfile.includes('npmmirror')
+    ? {
+        name: 'lockfile registry',
+        passed: false,
+        reason: 'lockfile resolves packages outside registry.npmjs.org',
+      }
+    : { name: 'lockfile registry', passed: true };
+
+  return { checks: [changelogCheck, versionCheck, branchCheck, treeCheck, lockfileCheck] };
 };
