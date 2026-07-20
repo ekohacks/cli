@@ -50,5 +50,14 @@ export const preflight = async ({
       ? { name: 'on main', passed: true }
       : { name: 'on main', passed: false, reason: `on ${branch}, not main` };
 
-  return { checks: [changelogCheck, versionCheck, branchCheck] };
+  const treeClean = await git.workingTreeClean();
+  const treeCheck: PreflightCheck = treeClean
+    ? { name: 'clean working tree', passed: true }
+    : {
+        name: 'clean working tree',
+        passed: false,
+        reason: 'uncommitted changes in the working tree',
+      };
+
+  return { checks: [changelogCheck, versionCheck, branchCheck, treeCheck] };
 };
