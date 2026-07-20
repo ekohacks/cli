@@ -28,4 +28,8 @@ describe('changelogEntryFor', () => {
       ['### Added', '', '- **A thing.** What it does for a consumer. (#160)'].join('\n'),
     );
   });
+
+  it('returns undefined for a version with no entry', () => {
+    expect(changelogEntryFor(CHANGELOG, '9.9.9')).toBeUndefined();
+  });
 });
