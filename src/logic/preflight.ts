@@ -1,4 +1,5 @@
 import { changelogEntryFor } from './changelog.ts';
+import { NpmWrapper } from '../infrastructure/npm.ts';
 
 export interface PreflightCheck {
   name: string;
@@ -13,12 +14,16 @@ export interface PreflightReport {
 // The "Before cutting" checklist from RELEASING.md as a policy: each check answers with
 // its name and, when it fails, the reason a human needs to fix it. The caller supplies
 // file contents and wrappers; the policy only judges.
-export const preflight = ({
+export const preflight = async ({
   version,
   changelog,
+  npm,
+  pkg,
 }: {
   version: string;
   changelog: string;
+  npm: NpmWrapper;
+  pkg: string;
 }): Promise<PreflightReport> => {
   const entry = changelogEntryFor(changelog, version);
   const changelogCheck: PreflightCheck =
@@ -30,5 +35,11 @@ export const preflight = ({
         }
       : { name: 'changelog entry', passed: true };
 
-  return Promise.resolve({ checks: [changelogCheck] });
+  const published = await npm.publishedVersion(pkg);
+  const versionCheck: PreflightCheck =
+    published === version
+      ? { name: 'version is new', passed: false, reason: `${version} is already published` }
+      : { name: 'version is new', passed: true };
+
+  return { checks: [changelogCheck, versionCheck] };
 };
