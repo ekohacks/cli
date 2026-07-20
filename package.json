@@ -1,0 +1,28 @@
+{
+  "name": "ekohacks",
+  "version": "0.0.0",
+  "description": "The EkoHacks CLI: our everyday operations, automated one small command at a time.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ekohacks/cli.git"
+  },
+  "license": "MIT",
+  "author": "ekohacks",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "prettier": "^3.9.5",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
