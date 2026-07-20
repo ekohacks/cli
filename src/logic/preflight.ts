@@ -1,6 +1,9 @@
 import { changelogEntryFor } from './changelog.ts';
 import { GitWrapper } from '../infrastructure/git.ts';
 import { NpmWrapper } from '../infrastructure/npm.ts';
+import { ProcessRunner } from '../infrastructure/process.ts';
+
+const SMOKE_COMMAND = 'npm run test:package';
 
 export interface PreflightCheck {
   name: string;
@@ -22,6 +25,7 @@ export const preflight = async ({
   pkg,
   git,
   lockfile,
+  runner,
 }: {
   version: string;
   changelog: string;
@@ -29,6 +33,7 @@ export const preflight = async ({
   pkg: string;
   git: GitWrapper;
   lockfile: string;
+  runner: ProcessRunner;
 }): Promise<PreflightReport> => {
   const entry = changelogEntryFor(changelog, version);
   const changelogCheck: PreflightCheck =
@@ -69,5 +74,13 @@ export const preflight = async ({
       }
     : { name: 'lockfile registry', passed: true };
 
-  return { checks: [changelogCheck, versionCheck, branchCheck, treeCheck, lockfileCheck] };
+  const smoke = await runner.run(SMOKE_COMMAND);
+  const smokeCheck: PreflightCheck =
+    smoke.exitCode === 0
+      ? { name: 'package smoke', passed: true }
+      : { name: 'package smoke', passed: false, reason: `${SMOKE_COMMAND} failed` };
+
+  return {
+    checks: [changelogCheck, versionCheck, branchCheck, treeCheck, lockfileCheck, smokeCheck],
+  };
 };
