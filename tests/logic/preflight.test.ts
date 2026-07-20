@@ -47,4 +47,16 @@ describe('preflight', () => {
       reason: 'on feature/thing, not main',
     });
   });
+
+  it('fails the clean tree check when the working tree is dirty', async () => {
+    const git = GitWrapper.createNull({ dirty: true });
+
+    const report = await runPreflight({ git });
+
+    expect(report.checks).toContainEqual({
+      name: 'clean working tree',
+      passed: false,
+      reason: 'uncommitted changes in the working tree',
+    });
+  });
 });
