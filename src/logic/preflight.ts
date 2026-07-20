@@ -1,4 +1,5 @@
 import { changelogEntryFor } from './changelog.ts';
+import { GitWrapper } from '../infrastructure/git.ts';
 import { NpmWrapper } from '../infrastructure/npm.ts';
 
 export interface PreflightCheck {
@@ -19,11 +20,13 @@ export const preflight = async ({
   changelog,
   npm,
   pkg,
+  git,
 }: {
   version: string;
   changelog: string;
   npm: NpmWrapper;
   pkg: string;
+  git: GitWrapper;
 }): Promise<PreflightReport> => {
   const entry = changelogEntryFor(changelog, version);
   const changelogCheck: PreflightCheck =
@@ -41,5 +44,11 @@ export const preflight = async ({
       ? { name: 'version is new', passed: false, reason: `${version} is already published` }
       : { name: 'version is new', passed: true };
 
-  return { checks: [changelogCheck, versionCheck] };
+  const branch = await git.currentBranch();
+  const branchCheck: PreflightCheck =
+    branch === 'main'
+      ? { name: 'on main', passed: true }
+      : { name: 'on main', passed: false, reason: `on ${branch}, not main` };
+
+  return { checks: [changelogCheck, versionCheck, branchCheck] };
 };
