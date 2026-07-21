@@ -77,6 +77,18 @@ describe('cut', () => {
     expect(actions.data).toEqual([]);
   });
 
+  it('stops when the release branch already exists', async () => {
+    const git = GitWrapper.createNull({ existingBranches: ['release/v0.5.0'] });
+    const actions = git.trackActions();
+
+    const result = await runCut({ git });
+
+    expect(result).toEqual({
+      stopped: 'branch release/v0.5.0 already exists from an earlier cut',
+    });
+    expect(actions.data).toEqual([]);
+  });
+
   it('waits while no checks are reported yet', async () => {
     const gh = GhWrapper.createNull({
       prNumber: 154,
