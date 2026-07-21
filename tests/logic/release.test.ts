@@ -70,4 +70,17 @@ describe('release', () => {
       'registry serves ekolite@0.5.0',
     ]);
   });
+
+  it('stops after preflight with the failing checks named', async () => {
+    const git = GitWrapper.createNull({ branch: 'feature/thing' });
+    const npm = NpmWrapper.createNull();
+    const bumps = npm.trackBumps();
+    const lines: string[] = [];
+
+    const result = await runRelease({ git, npm, narrate: (line) => lines.push(line) });
+
+    expect(result).toEqual({ stopped: 'preflight failed: on main' });
+    expect(lines).toContain('FAIL on main: on feature/thing, not main');
+    expect(bumps.data).toEqual([]);
+  });
 });
