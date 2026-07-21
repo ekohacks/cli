@@ -67,5 +67,5 @@ export const ship = async ({
     narrate('waiting for the registry');
     await delay(pollDelayMs);
   }
-  throw new Error(`registry never served ${pkg}@${version}`);
+  return { stopped: `registry never served ${pkg}@${version}` };
 };
