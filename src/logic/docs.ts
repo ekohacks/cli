@@ -1,5 +1,6 @@
 import { ProcessRunner } from '../infrastructure/process.ts';
 
+const DOCS_BUILD_COMMAND = 'npm run docs:build';
 const OPEN_MARKER = '<!-- ekohacks:entry-points -->';
 const CLOSE_MARKER = '<!-- /ekohacks:entry-points -->';
 
@@ -140,6 +141,13 @@ export const docsCheck = async ({
         : { name, passed: true },
     );
   }
+
+  const build = await runner.run(DOCS_BUILD_COMMAND);
+  checks.push(
+    build.exitCode === 0
+      ? { name: 'docs build', passed: true }
+      : { name: 'docs build', passed: false, reason: `${DOCS_BUILD_COMMAND} failed` },
+  );
 
   return { checks };
 };
