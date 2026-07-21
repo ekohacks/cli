@@ -93,6 +93,13 @@ export class GhWrapper {
           name: check.name,
           bucket: bucketFor(check),
         }));
+        if (rows.length === 0) {
+          return Promise.resolve({
+            exitCode: 1,
+            stdout: '',
+            stderr: "no checks reported on the 'release/v0.5.0' branch",
+          });
+        }
         return Promise.resolve({ exitCode: 0, stdout: `${JSON.stringify(rows)}\n`, stderr: '' });
       }
       return Promise.resolve({ exitCode: 0, stdout: '', stderr: '' });
@@ -212,10 +219,14 @@ export class GhWrapper {
   }
 
   // gh pr checks exits non-zero while checks are pending or failing, so the answer is in
-  // stdout, not the exit code.
+  // stdout, not the exit code. Right after a PR opens it exits non-zero with "no checks
+  // reported" until CI registers — that is an empty round, not an error.
   async checks(prNumber: number): Promise<PrCheck[]> {
     const result = await this.runGh(['pr', 'checks', String(prNumber), '--json', 'name,bucket']);
     if (result.stdout.trim() === '') {
+      if (result.stderr.includes('no checks reported')) {
+        return [];
+      }
       if (result.exitCode !== 0) {
         throw new Error(`gh pr checks ${prNumber} failed:\n${result.stderr}`);
       }
