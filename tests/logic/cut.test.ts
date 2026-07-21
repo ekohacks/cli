@@ -77,4 +77,21 @@ describe('cut', () => {
     expect(result).toEqual({ stopped: 'preflight failed: on main' });
     expect(actions.data).toEqual([]);
   });
+
+  it('stops with the failing check named when ci is red', async () => {
+    const gh = GhWrapper.createNull({
+      checkRounds: [
+        [
+          { name: 'build', concluded: true, passed: true },
+          { name: 'test', concluded: true, passed: false },
+        ],
+      ],
+    });
+    const merges = gh.trackMerges();
+
+    const result = await runCut({ gh });
+
+    expect(result).toEqual({ stopped: 'check test failed' });
+    expect(merges.data).toEqual([]);
+  });
 });
