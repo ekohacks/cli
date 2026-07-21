@@ -45,12 +45,12 @@ export class GhWrapper {
   static createNull({
     prNumber = 1,
     checkRounds = [[]],
-    waitingRun,
+    waitingRunRounds = [undefined],
     runRounds = [{ concluded: true, passed: true, url: 'https://github.com/nulled/nulled' }],
   }: {
     prNumber?: number;
     checkRounds?: PrCheck[][];
-    waitingRun?: number;
+    waitingRunRounds?: (number | undefined)[];
     runRounds?: RunState[];
   } = {}): GhWrapper {
     let round = 0;
@@ -68,7 +68,8 @@ export class GhWrapper {
         return Promise.resolve({ exitCode: 0, stdout: `${JSON.stringify(row)}\n`, stderr: '' });
       }
       if (args[0] === 'run' && args[1] === 'list') {
-        const rows = waitingRun === undefined ? [] : [{ databaseId: waitingRun }];
+        const waiting = waitingRunRounds[0];
+        const rows = waiting === undefined ? [] : [{ databaseId: waiting }];
         return Promise.resolve({ exitCode: 0, stdout: `${JSON.stringify(rows)}\n`, stderr: '' });
       }
       if (args[0] === 'api' && args[1]?.endsWith('pending_deployments') === true) {

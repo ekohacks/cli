@@ -9,7 +9,7 @@ const runShip = ({
   version = '0.5.0',
   changelog = CHANGELOG,
   pkg = 'ekolite',
-  gh = GhWrapper.createNull({ waitingRun: 123 }),
+  gh = GhWrapper.createNull({ waitingRunRounds: [123] }),
   npm = NpmWrapper.createNull({ publishedVersions: { ekolite: '0.5.0' } }),
   confirm = (_question: string) => Promise.resolve(true),
   narrate = (_line: string) => {},
@@ -30,7 +30,7 @@ describe('ship', () => {
   it('cuts the release, approves the gate and reports the registry', async () => {
     const url = 'https://github.com/nulled/nulled/actions/runs/123';
     const gh = GhWrapper.createNull({
-      waitingRun: 123,
+      waitingRunRounds: [123],
       runRounds: [
         { concluded: false, passed: false, url },
         { concluded: true, passed: true, url },
@@ -67,7 +67,7 @@ describe('ship', () => {
   });
 
   it('never approves the gate when the answer is no', async () => {
-    const gh = GhWrapper.createNull({ waitingRun: 123 });
+    const gh = GhWrapper.createNull({ waitingRunRounds: [123] });
     const approvals = gh.trackApprovals();
 
     const result = await runShip({ gh, confirm: () => Promise.resolve(false) });
@@ -79,7 +79,7 @@ describe('ship', () => {
   it('stops with the log pointer when the publish run fails', async () => {
     const url = 'https://github.com/nulled/nulled/actions/runs/123';
     const gh = GhWrapper.createNull({
-      waitingRun: 123,
+      waitingRunRounds: [123],
       runRounds: [{ concluded: true, passed: false, url }],
     });
 

@@ -53,7 +53,7 @@ describe('GhWrapper (nulled)', () => {
   });
 
   it('answers the configured waiting publish run', async () => {
-    const gh = GhWrapper.createNull({ waitingRun: 123 });
+    const gh = GhWrapper.createNull({ waitingRunRounds: [123] });
 
     expect(await gh.waitingRun('publish.yml')).toEqual({ id: 123 });
   });
@@ -65,7 +65,7 @@ describe('GhWrapper (nulled)', () => {
   });
 
   it('records approved runs on its output tracker', async () => {
-    const gh = GhWrapper.createNull({ waitingRun: 123 });
+    const gh = GhWrapper.createNull({ waitingRunRounds: [123] });
     const approvals = gh.trackApprovals();
 
     await gh.approveRun(123);
