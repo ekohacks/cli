@@ -77,8 +77,26 @@ describe('cut', () => {
     expect(actions.data).toEqual([]);
   });
 
+  it('waits while no checks are reported yet', async () => {
+    const gh = GhWrapper.createNull({
+      prNumber: 154,
+      checkRounds: [[], [{ name: 'build', concluded: true, passed: true }]],
+    });
+    const merges = gh.trackMerges();
+    const lines: string[] = [];
+
+    const result = await runCut({ gh, narrate: (line) => lines.push(line) });
+
+    expect(result).toEqual({ merged: 154 });
+    expect(merges.data).toEqual([154]);
+    expect(lines.filter((line) => line === 'waiting for checks')).toHaveLength(1);
+  });
+
   it('asks before merging and stops on no', async () => {
-    const gh = GhWrapper.createNull({ prNumber: 154 });
+    const gh = GhWrapper.createNull({
+      prNumber: 154,
+      checkRounds: [[{ name: 'build', concluded: true, passed: true }]],
+    });
     const merges = gh.trackMerges();
     const questions: string[] = [];
 
