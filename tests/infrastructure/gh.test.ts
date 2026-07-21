@@ -9,4 +9,17 @@ describe('GhWrapper (nulled)', () => {
       number: 154,
     });
   });
+
+  it('answers configured check rounds in order, repeating the last', async () => {
+    const gh = GhWrapper.createNull({
+      checkRounds: [
+        [{ name: 'build', concluded: false, passed: false }],
+        [{ name: 'build', concluded: true, passed: true }],
+      ],
+    });
+
+    expect(await gh.checks(7)).toEqual([{ name: 'build', concluded: false, passed: false }]);
+    expect(await gh.checks(7)).toEqual([{ name: 'build', concluded: true, passed: true }]);
+    expect(await gh.checks(7)).toEqual([{ name: 'build', concluded: true, passed: true }]);
+  });
 });
