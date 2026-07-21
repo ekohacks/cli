@@ -39,9 +39,14 @@ export class GhWrapper {
   static createNull({
     prNumber = 1,
     checkRounds = [[]],
-  }: { prNumber?: number; checkRounds?: PrCheck[][] } = {}): GhWrapper {
+    waitingRun,
+  }: { prNumber?: number; checkRounds?: PrCheck[][]; waitingRun?: number } = {}): GhWrapper {
     let round = 0;
     return new GhWrapper((args) => {
+      if (args[0] === 'run' && args[1] === 'list') {
+        const rows = waitingRun === undefined ? [] : [{ databaseId: waitingRun }];
+        return Promise.resolve({ exitCode: 0, stdout: `${JSON.stringify(rows)}\n`, stderr: '' });
+      }
       if (args[0] === 'pr' && args[1] === 'create') {
         return Promise.resolve({
           exitCode: 0,
@@ -96,6 +101,27 @@ export class GhWrapper {
       tracker.push(options);
     }
     return { number: Number(url[1]) };
+  }
+
+  async waitingRun(workflow: string): Promise<{ id: number } | undefined> {
+    const result = await this.runGh([
+      'run',
+      'list',
+      '--workflow',
+      workflow,
+      '--status',
+      'waiting',
+      '--json',
+      'databaseId',
+      '--limit',
+      '1',
+    ]);
+    if (result.exitCode !== 0) {
+      throw new Error(`gh run list failed:\n${result.stderr}`);
+    }
+    const rows = JSON.parse(result.stdout) as { databaseId: number }[];
+    const first = rows[0];
+    return first === undefined ? undefined : { id: first.databaseId };
   }
 
   // gh pr checks exits non-zero while checks are pending or failing, so the answer is in
