@@ -9,6 +9,12 @@ export interface PrCheck {
   passed: boolean;
 }
 
+export interface RunState {
+  concluded: boolean;
+  passed: boolean;
+  url: string;
+}
+
 type GhResult = { exitCode: number; stdout: string; stderr: string };
 type RunGh = (args: string[]) => Promise<GhResult>;
 
@@ -40,9 +46,27 @@ export class GhWrapper {
     prNumber = 1,
     checkRounds = [[]],
     waitingRun,
-  }: { prNumber?: number; checkRounds?: PrCheck[][]; waitingRun?: number } = {}): GhWrapper {
+    runRounds = [{ concluded: true, passed: true, url: 'https://github.com/nulled/nulled' }],
+  }: {
+    prNumber?: number;
+    checkRounds?: PrCheck[][];
+    waitingRun?: number;
+    runRounds?: RunState[];
+  } = {}): GhWrapper {
     let round = 0;
+    let runRound = 0;
     return new GhWrapper((args) => {
+      if (args[0] === 'run' && args[1] === 'view') {
+        const index = Math.min(runRound, runRounds.length - 1);
+        runRound += 1;
+        const state = runRounds[index] ?? { concluded: true, passed: true, url: '' };
+        const row = {
+          status: state.concluded ? 'completed' : 'in_progress',
+          conclusion: !state.concluded ? '' : state.passed ? 'success' : 'failure',
+          url: state.url,
+        };
+        return Promise.resolve({ exitCode: 0, stdout: `${JSON.stringify(row)}\n`, stderr: '' });
+      }
       if (args[0] === 'run' && args[1] === 'list') {
         const rows = waitingRun === undefined ? [] : [{ databaseId: waitingRun }];
         return Promise.resolve({ exitCode: 0, stdout: `${JSON.stringify(rows)}\n`, stderr: '' });
@@ -162,6 +186,25 @@ export class GhWrapper {
     for (const tracker of this.approvalTrackers) {
       tracker.push(runId);
     }
+  }
+
+  async run(runId: number): Promise<RunState> {
+    const result = await this.runGh([
+      'run',
+      'view',
+      String(runId),
+      '--json',
+      'status,conclusion,url',
+    ]);
+    if (result.exitCode !== 0) {
+      throw new Error(`gh run view ${runId} failed:\n${result.stderr}`);
+    }
+    const row = JSON.parse(result.stdout) as { status: string; conclusion: string; url: string };
+    return {
+      concluded: row.status === 'completed',
+      passed: row.conclusion === 'success',
+      url: row.url,
+    };
   }
 
   // gh pr checks exits non-zero while checks are pending or failing, so the answer is in
