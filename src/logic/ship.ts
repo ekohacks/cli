@@ -43,7 +43,7 @@ export const ship = async ({
   }
 
   if (!(await confirm(`approve the release gate for run #${waiting.id}?`))) {
-    throw new Error('gate not approved');
+    return { stopped: 'gate not approved' };
   }
   await gh.approveRun(waiting.id);
   narrate(`gate approved for run #${waiting.id}`);
