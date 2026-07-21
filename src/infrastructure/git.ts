@@ -25,13 +25,22 @@ export class GitWrapper {
     branch = 'main',
     dirty = false,
     behindOrigin = false,
-  }: { branch?: string; dirty?: boolean; behindOrigin?: boolean } = {}): GitWrapper {
+    existingBranches = [],
+  }: {
+    branch?: string;
+    dirty?: boolean;
+    behindOrigin?: boolean;
+    existingBranches?: string[];
+  } = {}): GitWrapper {
     const outputs: Record<string, string> = {
       'rev-parse --abbrev-ref HEAD': `${branch}\n`,
       'status --porcelain': dirty ? ' M some-file.ts\n' : '',
       'rev-parse main': behindOrigin ? 'local\n' : 'shared\n',
       'rev-parse origin/main': 'shared\n',
     };
+    for (const existing of existingBranches) {
+      outputs[`branch --list ${existing}`] = `  ${existing}\n`;
+    }
     return new GitWrapper((args) => Promise.resolve(outputs[args.join(' ')] ?? ''));
   }
 
@@ -47,6 +56,12 @@ export class GitWrapper {
 
   async workingTreeClean(): Promise<boolean> {
     return (await this.runGit(['status', '--porcelain'])).trim() === '';
+  }
+
+  // git branch --list exits 0 whether or not the branch exists, so this never trips the
+  // real runner's throw-on-nonzero; existence is in the output.
+  async branchExists(branch: string): Promise<boolean> {
+    return (await this.runGit(['branch', '--list', branch])).trim() !== '';
   }
 
   async mainInSyncWithOrigin(): Promise<boolean> {
