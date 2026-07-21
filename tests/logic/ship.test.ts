@@ -65,4 +65,14 @@ describe('ship', () => {
     expect(result).toEqual({ stopped: 'no waiting publish run' });
     expect(approvals.data).toEqual([]);
   });
+
+  it('never approves the gate when the answer is no', async () => {
+    const gh = GhWrapper.createNull({ waitingRun: 123 });
+    const approvals = gh.trackApprovals();
+
+    const result = await runShip({ gh, confirm: () => Promise.resolve(false) });
+
+    expect(result).toEqual({ stopped: 'gate not approved' });
+    expect(approvals.data).toEqual([]);
+  });
 });
