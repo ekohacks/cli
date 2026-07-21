@@ -59,8 +59,7 @@ export const docsCheck = async ({
   );
 
   const entries = entryPointsFrom(pkg, exports);
-  const file = carriers[0];
-  if (file !== undefined) {
+  for (const file of carriers) {
     const name = `entry points in ${file.path}`;
     const documented = new Set(blockRegions(file.content).flatMap(specifiersIn));
     const notListed = entries.filter((entry) => !documented.has(entry));
