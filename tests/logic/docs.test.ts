@@ -98,7 +98,13 @@ describe('docs check', () => {
   it('treats a package without an exports map as its own single entry point', async () => {
     const files = [{ path: 'README.md', content: blockWith('ekolite') }];
 
-    const report = await runDocsCheck({ exports: undefined, files });
+    // Not through the helper: its default parameter would swallow an explicit undefined.
+    const report = await docsCheck({
+      pkg: 'ekolite',
+      exports: undefined,
+      files,
+      runner: ProcessRunner.createNull(),
+    });
 
     expect(report.checks).toContainEqual({ name: 'entry points in README.md', passed: true });
   });
