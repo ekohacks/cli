@@ -24,6 +24,9 @@ export class NpmWrapper {
     publishedVersions = {},
   }: { publishedVersions?: PublishedVersions } = {}): NpmWrapper {
     return new NpmWrapper((args) => {
+      if (args[0] === 'version') {
+        return Promise.resolve({ exitCode: 0, stdout: `v${args[1]}\n`, stderr: '' });
+      }
       const pkg = args[1] ?? '';
       const version = publishedVersions[pkg];
       return Promise.resolve(
@@ -38,6 +41,24 @@ export class NpmWrapper {
 
   private constructor(runNpm: RunNpm) {
     this.runNpm = runNpm;
+  }
+
+  private readonly bumpTrackers: string[][] = [];
+
+  trackBumps(): { data: string[] } {
+    const tracker: string[] = [];
+    this.bumpTrackers.push(tracker);
+    return { data: tracker };
+  }
+
+  async bumpVersion(version: string): Promise<void> {
+    const result = await this.runNpm(['version', version, '--no-git-tag-version']);
+    if (result.exitCode !== 0) {
+      throw new Error(`npm version ${version} failed:\n${result.stderr}`);
+    }
+    for (const tracker of this.bumpTrackers) {
+      tracker.push(version);
+    }
   }
 
   async publishedVersion(pkg: string): Promise<string | undefined> {
