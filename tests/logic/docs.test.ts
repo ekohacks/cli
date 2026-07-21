@@ -182,4 +182,18 @@ describe('docs check', () => {
 
     expect(report.checks.every((check) => check.passed)).toBe(true);
   });
+
+  it('fails the build check when the docs build fails', async () => {
+    const runner = ProcessRunner.createNull({
+      commands: { 'npm run docs:build': { exitCode: 1 } },
+    });
+
+    const report = await runDocsCheck({ runner });
+
+    expect(report.checks).toContainEqual({
+      name: 'docs build',
+      passed: false,
+      reason: 'npm run docs:build failed',
+    });
+  });
 });
