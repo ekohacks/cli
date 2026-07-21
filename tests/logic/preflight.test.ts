@@ -51,6 +51,18 @@ describe('preflight', () => {
     });
   });
 
+  it('fails the sync check when main does not match origin', async () => {
+    const git = GitWrapper.createNull({ behindOrigin: true });
+
+    const report = await runPreflight({ git });
+
+    expect(report.checks).toContainEqual({
+      name: 'in sync with origin',
+      passed: false,
+      reason: 'main does not match origin/main',
+    });
+  });
+
   it('fails the clean tree check when the working tree is dirty', async () => {
     const git = GitWrapper.createNull({ dirty: true });
 

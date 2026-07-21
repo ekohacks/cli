@@ -55,6 +55,7 @@ describe('release', () => {
       'ok changelog entry',
       'ok version is new',
       'ok on main',
+      'ok in sync with origin',
       'ok clean working tree',
       'ok lockfile registry',
       'ok package smoke',
