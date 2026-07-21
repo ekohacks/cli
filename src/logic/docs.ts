@@ -51,6 +51,27 @@ const specifiersIn = (region: string, pkg: string): string[] =>
     .map(([, fromSpecifier, bareSpecifier]) => fromSpecifier ?? bareSpecifier)
     .filter((specifier) => specifier === pkg || specifier.startsWith(`${pkg}/`));
 
+const COUNT_WORDS: Record<string, number> = {
+  zero: 0,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+};
+
+const countClaimsIn = (content: string): number[] =>
+  [
+    ...content.matchAll(
+      /\b(\d+|zero|one|two|three|four|five|six|seven|eight|nine|ten)[\s-]+entry[\s-]+points?\b/gi,
+    ),
+  ].map(([, claim]) => COUNT_WORDS[claim.toLowerCase()] ?? Number(claim));
+
 // The drift detector as a policy: the exports map is the truth, the docs carry their
 // claims in a block the tool owns, and every mismatch is a named check with the reason
 // a human needs to fix it. The caller supplies file contents and the runner; the policy
@@ -99,6 +120,17 @@ export const docsCheck = async ({
         ? { name, passed: false, reason: reasons.join('; ') }
         : { name, passed: true },
     );
+  }
+
+  for (const file of files) {
+    const wrong = countClaimsIn(file.content).filter((claim) => claim !== entries.length);
+    if (wrong.length > 0) {
+      checks.push({
+        name: `entry count in ${file.path}`,
+        passed: false,
+        reason: `claims ${wrong.join(' and ')} entry points, exports has ${entries.length}`,
+      });
+    }
   }
 
   return { checks };
