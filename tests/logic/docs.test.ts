@@ -19,6 +19,14 @@ const README = [
   '',
 ].join('\n');
 
+const blockWith = (...imports: string[]) =>
+  [
+    '<!-- ekohacks:entry-points -->',
+    ...imports.map((specifier) => `import thing from '${specifier}';`),
+    '<!-- /ekohacks:entry-points -->',
+    '',
+  ].join('\n');
+
 const runDocsCheck = ({
   pkg = 'ekolite',
   exports = EXPORTS as unknown,
@@ -46,6 +54,20 @@ describe('docs check', () => {
       name: 'entry points in README.md',
       passed: false,
       reason: 'not listed: ekolite/config',
+    });
+  });
+
+  it('fails the file check when the docs list an entry point gone from the exports', async () => {
+    const files = [
+      { path: 'README.md', content: blockWith('ekolite', 'ekolite/react', 'ekolite/legacy') },
+    ];
+
+    const report = await runDocsCheck({ files });
+
+    expect(report.checks).toContainEqual({
+      name: 'entry points in README.md',
+      passed: false,
+      reason: 'not in exports: ekolite/legacy',
     });
   });
 });
