@@ -18,6 +18,7 @@ export const ship = async ({
   confirm,
   narrate,
   pollDelayMs = 15_000,
+  findRunAttempts = 8,
   registryAttempts = 20,
   workflow = 'publish.yml',
 }: {
@@ -29,6 +30,7 @@ export const ship = async ({
   confirm: (question: string) => Promise<boolean>;
   narrate: (line: string) => void;
   pollDelayMs?: number;
+  findRunAttempts?: number;
   registryAttempts?: number;
   workflow?: string;
 }): Promise<ShipResult> => {
@@ -37,7 +39,14 @@ export const ship = async ({
   await gh.createRelease({ tag, title: tag, notes });
   narrate(`release ${tag} cut`);
 
-  const waiting = await gh.waitingRun(workflow);
+  // The run takes a few seconds to appear after the release event, so a miss here is
+  // usually the race, not a missing workflow: ask again briefly before giving up.
+  let waiting = await gh.waitingRun(workflow);
+  for (let attempt = 1; waiting === undefined && attempt < findRunAttempts; attempt += 1) {
+    narrate('waiting for the publish run to appear');
+    await delay(pollDelayMs);
+    waiting = await gh.waitingRun(workflow);
+  }
   if (waiting === undefined) {
     return { stopped: 'no waiting publish run' };
   }
