@@ -87,4 +87,14 @@ describe('ship', () => {
 
     expect(result).toEqual({ stopped: `publish run failed: ${url}` });
   });
+
+  it('stops when the registry never serves the version', async () => {
+    const npm = NpmWrapper.createNull({ publishedVersions: { ekolite: '0.4.0' } });
+    const lines: string[] = [];
+
+    const result = await runShip({ npm, narrate: (line) => lines.push(line) });
+
+    expect(result).toEqual({ stopped: 'registry never served ekolite@0.5.0' });
+    expect(lines.filter((line) => line === 'waiting for the registry')).toHaveLength(2);
+  });
 });
