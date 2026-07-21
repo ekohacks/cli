@@ -13,11 +13,14 @@ export interface DocsReport {
 }
 
 // The public entry points an exports map declares, as the specifiers a consumer imports:
-// "." is the bare package name, "./react" is pkg/react.
-export const entryPointsFrom = (pkg: string, exports: unknown): string[] =>
-  Object.keys(exports as Record<string, unknown>).map((key) =>
-    key === '.' ? pkg : `${pkg}/${key.slice(2)}`,
-  );
+// "." is the bare package name, "./react" is pkg/react. A package with no exports map
+// has a single entry point: itself.
+export const entryPointsFrom = (pkg: string, exports: unknown): string[] => {
+  if (typeof exports !== 'object' || exports === null) {
+    return [pkg];
+  }
+  return Object.keys(exports).map((key) => (key === '.' ? pkg : `${pkg}/${key.slice(2)}`));
+};
 
 const blockRegions = (content: string): string[] =>
   content
