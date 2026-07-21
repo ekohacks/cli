@@ -39,7 +39,7 @@ export const ship = async ({
 
   const waiting = await gh.waitingRun(workflow);
   if (waiting === undefined) {
-    throw new Error('no waiting publish run');
+    return { stopped: 'no waiting publish run' };
   }
 
   if (!(await confirm(`approve the release gate for run #${waiting.id}?`))) {
