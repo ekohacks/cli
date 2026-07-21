@@ -75,4 +75,16 @@ describe('ship', () => {
     expect(result).toEqual({ stopped: 'gate not approved' });
     expect(approvals.data).toEqual([]);
   });
+
+  it('stops with the log pointer when the publish run fails', async () => {
+    const url = 'https://github.com/nulled/nulled/actions/runs/123';
+    const gh = GhWrapper.createNull({
+      waitingRun: 123,
+      runRounds: [{ concluded: true, passed: false, url }],
+    });
+
+    const result = await runShip({ gh });
+
+    expect(result).toEqual({ stopped: `publish run failed: ${url}` });
+  });
 });
