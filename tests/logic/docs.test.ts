@@ -1,0 +1,39 @@
+import { describe, expect, it } from 'vitest';
+import { ProcessRunner } from '../../src/infrastructure/process.ts';
+import { docsCheck } from '../../src/logic/docs.ts';
+
+const EXPORTS = {
+  '.': { import: './dist/server/index.js' },
+  './react': { import: './dist/client/react.js' },
+};
+
+const README = [
+  'Two entry points, everything else stays internal:',
+  '',
+  '<!-- ekohacks:entry-points -->',
+  '```ts',
+  "import { App } from 'ekolite';",
+  "import { useSubscription } from 'ekolite/react';",
+  '```',
+  '<!-- /ekohacks:entry-points -->',
+  '',
+].join('\n');
+
+const runDocsCheck = ({
+  pkg = 'ekolite',
+  exports = EXPORTS as unknown,
+  files = [{ path: 'README.md', content: README }],
+  runner = ProcessRunner.createNull(),
+} = {}) => docsCheck({ pkg, exports, files, runner });
+
+describe('docs check', () => {
+  it('fails when no docs file carries the entry-points block', async () => {
+    const report = await runDocsCheck({ files: [{ path: 'README.md', content: '# ekolite\n' }] });
+
+    expect(report.checks).toContainEqual({
+      name: 'entry points declared',
+      passed: false,
+      reason: 'no docs file carries an <!-- ekohacks:entry-points --> block',
+    });
+  });
+});
