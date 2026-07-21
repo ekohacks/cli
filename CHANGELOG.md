@@ -2,6 +2,18 @@
 
 All notable changes to `ekohacks` are recorded here.
 
+## 0.1.1
+
+### Fixed
+
+- **Missing release files stop with a name.** Running `ekohacks release` in a directory
+  without a `CHANGELOG.md`, `package.json` or `package-lock.json` now stops with the
+  missing file named, instead of a stack trace.
+- **A finished cut is diagnosed, not crashed into.** When `package.json` already carries
+  the target version, cut stops with "the cut looks finished, run
+  `ekohacks release ship`" instead of failing inside `npm version` — the named exit for
+  re-running a release whose PR was already merged.
+
 ## 0.1.0
 
 ### Added
