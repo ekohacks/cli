@@ -13,4 +13,19 @@ describe('GitWrapper (nulled)', () => {
 
     expect(await git.workingTreeClean()).toBe(false);
   });
+
+  it('records branch, commit and push on its output tracker', async () => {
+    const git = GitWrapper.createNull();
+    const actions = git.trackActions();
+
+    await git.createBranch('release/v0.5.0');
+    await git.commitAll('chore: release 0.5.0');
+    await git.push();
+
+    expect(actions.data).toEqual([
+      { action: 'createBranch', branch: 'release/v0.5.0' },
+      { action: 'commitAll', message: 'chore: release 0.5.0' },
+      { action: 'push' },
+    ]);
+  });
 });
