@@ -8,11 +8,11 @@ type PublishedVersions = Record<string, string>;
 // bottom layer: create() shells out to npm, createNull() answers from a configured map of
 // package name to published version, so the null never touches the network.
 export class NpmWrapper {
-  static create(): NpmWrapper {
+  static create({ cwd = process.cwd() }: { cwd?: string } = {}): NpmWrapper {
     return new NpmWrapper(
       (args) =>
         new Promise((resolve) => {
-          execFile('npm', args, (error, stdout, stderr) => {
+          execFile('npm', args, { cwd }, (error, stdout, stderr) => {
             const exitCode = error === null ? 0 : 1;
             resolve({ exitCode, stdout, stderr });
           });
