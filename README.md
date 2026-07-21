@@ -6,7 +6,7 @@ We run a distributed team shipping open source to npm with strict TDD and trunk 
 
 ## Status
 
-Building the first command. The work is broken into small stories in [`stories/`](stories/), each delivered red first: a failing test is committed and reviewed before any production code exists. The suite is the specification.
+The release command is built: the four stories in [`stories/`](stories/) are implemented, each delivered red first — a failing test is committed and reviewed before any production code exists. The suite is the specification. The acceptance test for the whole is the next real EkoLite release, run with `ekohacks release <version>`.
 
 ## How this is built
 
