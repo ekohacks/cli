@@ -26,6 +26,7 @@ const runRelease = ({
   confirm = (_question: string) => Promise.resolve(true),
   narrate = (_line: string) => {},
   yes = false,
+  currentVersion = undefined as string | undefined,
 } = {}) =>
   release({
     version,
@@ -39,6 +40,7 @@ const runRelease = ({
     confirm,
     narrate,
     yes,
+    currentVersion,
     pollDelayMs: 0,
     findRunAttempts: 2,
     registryAttempts: 2,
@@ -83,6 +85,15 @@ describe('release', () => {
     expect(result).toEqual({ stopped: 'preflight failed: on main' });
     expect(lines).toContain('FAIL on main: on feature/thing, not main');
     expect(bumps.data).toEqual([]);
+  });
+
+  it('stops when the cut looks finished already', async () => {
+    const result = await runRelease({ currentVersion: '0.5.0' });
+
+    expect(result).toEqual({
+      stopped:
+        'package.json is already at 0.5.0: the cut looks finished, run ekohacks release ship 0.5.0',
+    });
   });
 
   it('asks at the merge, the release and the gate', async () => {

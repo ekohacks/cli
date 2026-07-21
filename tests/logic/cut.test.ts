@@ -18,7 +18,9 @@ const runCut = ({
   gh = GhWrapper.createNull(),
   narrate = (_line: string) => {},
   confirm = (_question: string) => Promise.resolve(true),
-} = {}) => cut({ version, changelog, report, git, npm, gh, narrate, confirm, pollDelayMs: 0 });
+  currentVersion = undefined as string | undefined,
+} = {}) =>
+  cut({ version, changelog, report, git, npm, gh, narrate, confirm, currentVersion, pollDelayMs: 0 });
 
 describe('cut', () => {
   it('walks the rail in order and merges on green', async () => {
@@ -74,6 +76,19 @@ describe('cut', () => {
     });
 
     expect(result).toEqual({ stopped: 'preflight failed: on main' });
+    expect(actions.data).toEqual([]);
+  });
+
+  it('stops when the version is already bumped', async () => {
+    const git = GitWrapper.createNull();
+    const actions = git.trackActions();
+
+    const result = await runCut({ git, currentVersion: '0.5.0' });
+
+    expect(result).toEqual({
+      stopped:
+        'package.json is already at 0.5.0: the cut looks finished, run ekohacks release ship 0.5.0',
+    });
     expect(actions.data).toEqual([]);
   });
 
