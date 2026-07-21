@@ -51,4 +51,16 @@ describe('GhWrapper (nulled)', () => {
       { tag: 'v0.5.0', title: 'v0.5.0', notes: '- **A thing.** (#160)' },
     ]);
   });
+
+  it('answers the configured waiting publish run', async () => {
+    const gh = GhWrapper.createNull({ waitingRun: 123 });
+
+    expect(await gh.waitingRun('publish.yml')).toEqual({ id: 123 });
+  });
+
+  it('answers undefined when no run is waiting', async () => {
+    const gh = GhWrapper.createNull();
+
+    expect(await gh.waitingRun('publish.yml')).toBeUndefined();
+  });
 });
