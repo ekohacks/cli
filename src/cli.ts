@@ -10,16 +10,19 @@ import { NpmWrapper } from './infrastructure/npm.ts';
 import { ProcessRunner } from './infrastructure/process.ts';
 import { cut } from './logic/cut.ts';
 import { preflight } from './logic/preflight.ts';
+import { release } from './logic/release.ts';
 import { ship } from './logic/ship.ts';
 
-const [command, subcommand, version] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const yes = argv.includes('--yes');
+const [command, ...rest] = argv.filter((arg) => arg !== '--yes');
 
-if (
-  command !== 'release' ||
-  (subcommand !== 'preflight' && subcommand !== 'cut' && subcommand !== 'ship') ||
-  version === undefined
-) {
-  console.error('usage: ekohacks release <preflight|cut|ship> <version>');
+const first = rest[0];
+const subcommand = first === 'preflight' || first === 'cut' || first === 'ship' ? first : undefined;
+const version = subcommand === undefined ? first : rest[1];
+
+if (command !== 'release' || version === undefined) {
+  console.error('usage: ekohacks release [preflight|cut|ship] <version> [--yes]');
   process.exit(2);
 }
 
@@ -27,14 +30,37 @@ const read = (file: string) => readFileSync(file, 'utf8');
 const changelog = read('CHANGELOG.md');
 const pkg = (JSON.parse(read('package.json')) as { name: string }).name;
 
-if (subcommand === 'ship') {
-  const confirm = async (question: string) => {
-    const readline = createInterface({ input: process.stdin, output: process.stdout });
-    const answer = await readline.question(`${question} (y/n) `);
-    readline.close();
-    return answer.trim().toLowerCase() === 'y';
-  };
+const confirm = async (question: string) => {
+  const readline = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await readline.question(`${question} (y/n) `);
+  readline.close();
+  return answer.trim().toLowerCase() === 'y';
+};
+const narrate = (line: string) => console.log(`  ${line}`);
 
+if (subcommand === undefined) {
+  const result = await release({
+    version,
+    changelog,
+    lockfile: read('package-lock.json'),
+    pkg,
+    git: GitWrapper.create(),
+    npm: NpmWrapper.create(),
+    gh: GhWrapper.create(),
+    runner: ProcessRunner.create(),
+    confirm,
+    narrate,
+    yes,
+  });
+
+  if ('stopped' in result) {
+    console.error(`stopped: ${result.stopped}`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
+if (subcommand === 'ship') {
   const result = await ship({
     version,
     changelog,
@@ -42,7 +68,7 @@ if (subcommand === 'ship') {
     gh: GhWrapper.create(),
     npm: NpmWrapper.create(),
     confirm,
-    narrate: (line) => console.log(`  ${line}`),
+    narrate,
   });
 
   if ('stopped' in result) {
@@ -77,7 +103,7 @@ const result = await cut({
   git: GitWrapper.create(),
   npm: NpmWrapper.create(),
   gh: GhWrapper.create(),
-  narrate: (line) => console.log(`  ${line}`),
+  narrate,
 });
 
 if ('stopped' in result) {
