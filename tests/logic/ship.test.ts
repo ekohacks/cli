@@ -55,4 +55,14 @@ describe('ship', () => {
       'registry serves ekolite@0.5.0',
     ]);
   });
+
+  it('stops when there is no waiting publish run', async () => {
+    const gh = GhWrapper.createNull();
+    const approvals = gh.trackApprovals();
+
+    const result = await runShip({ gh });
+
+    expect(result).toEqual({ stopped: 'no waiting publish run' });
+    expect(approvals.data).toEqual([]);
+  });
 });
