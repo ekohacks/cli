@@ -31,4 +31,13 @@ describe('GhWrapper (nulled)', () => {
 
     expect(merges.data).toEqual([154]);
   });
+
+  it('records opened prs on its output tracker', async () => {
+    const gh = GhWrapper.createNull();
+    const opens = gh.trackOpens();
+
+    await gh.openPr({ title: 'chore: release 0.5.0', body: 'the changelog entry' });
+
+    expect(opens.data).toEqual([{ title: 'chore: release 0.5.0', body: 'the changelog entry' }]);
+  });
 });
