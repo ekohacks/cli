@@ -40,4 +40,15 @@ describe('GhWrapper (nulled)', () => {
 
     expect(opens.data).toEqual([{ title: 'chore: release 0.5.0', body: 'the changelog entry' }]);
   });
+
+  it('records created releases on its output tracker', async () => {
+    const gh = GhWrapper.createNull();
+    const releases = gh.trackReleases();
+
+    await gh.createRelease({ tag: 'v0.5.0', title: 'v0.5.0', notes: '- **A thing.** (#160)' });
+
+    expect(releases.data).toEqual([
+      { tag: 'v0.5.0', title: 'v0.5.0', notes: '- **A thing.** (#160)' },
+    ]);
+  });
 });
