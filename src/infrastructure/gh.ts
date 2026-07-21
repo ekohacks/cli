@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 
 type OpenPrOptions = { title: string; body: string };
+type CreateReleaseOptions = { tag: string; title: string; notes: string };
 
 export interface PrCheck {
   name: string;
@@ -113,6 +114,34 @@ export class GhWrapper {
       concluded: row.bucket !== 'pending',
       passed: row.bucket === 'pass' || row.bucket === 'skipping',
     }));
+  }
+
+  private readonly releaseTrackers: CreateReleaseOptions[][] = [];
+
+  trackReleases(): { data: CreateReleaseOptions[] } {
+    const tracker: CreateReleaseOptions[] = [];
+    this.releaseTrackers.push(tracker);
+    return { data: tracker };
+  }
+
+  async createRelease(options: CreateReleaseOptions): Promise<void> {
+    const result = await this.runGh([
+      'release',
+      'create',
+      options.tag,
+      '--target',
+      'main',
+      '--title',
+      options.title,
+      '--notes',
+      options.notes,
+    ]);
+    if (result.exitCode !== 0) {
+      throw new Error(`gh release create ${options.tag} failed:\n${result.stderr}`);
+    }
+    for (const tracker of this.releaseTrackers) {
+      tracker.push(options);
+    }
   }
 
   private readonly mergeTrackers: number[][] = [];
