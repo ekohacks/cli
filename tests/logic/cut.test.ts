@@ -15,7 +15,7 @@ const runCut = ({
   git = GitWrapper.createNull(),
   npm = NpmWrapper.createNull(),
   gh = GhWrapper.createNull(),
-  narrate = () => {},
+  narrate = (_line: string) => {},
 } = {}) => cut({ version, changelog, report, git, npm, gh, narrate, pollDelayMs: 0 });
 
 describe('cut', () => {
