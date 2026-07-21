@@ -60,6 +60,11 @@ export const cut = async ({
     checks = await gh.checks(number);
   }
 
+  const failing = checks.find((check) => !check.passed);
+  if (failing !== undefined) {
+    return { stopped: `check ${failing.name} failed` };
+  }
+
   await gh.mergePr(number);
   narrate(`merged pr #${number}`);
   return { merged: number };
