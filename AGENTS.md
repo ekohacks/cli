@@ -8,9 +8,12 @@ live here; when a line's underlying cause gets fixed, delete the line.
   piece of work. Make it green by writing production code; never edit a committed red
   test to make it pass, and never commit production code in the same commit as the test
   that specifies it.
-- There is deliberately no build step. The `.ts` files run directly on Node 24's type
-  stripping, so the explicit `.ts` extensions in imports are load-bearing — don't
-  "correct" them to `.js`, and don't add tsc emit or a bundler.
+- There is deliberately no build step in development. The `.ts` files run directly on
+  Node 24's type stripping, so the explicit `.ts` extensions in imports are load-bearing
+  — don't "correct" them to `.js`, and don't add a dev-time build or a bundler. The one
+  exception is publishing: Node refuses type stripping under `node_modules`, so `prepack`
+  emits plain JS to `dist/` (`tsconfig.build.json`, `rewriteRelativeImportExtensions`)
+  and the npm tarball ships only that.
 - A corollary: types are stripped, not checked, at run time. A committed red test that
   calls a not-yet-implemented option (`create({ cwd })` before `cwd` exists) runs anyway
   with the option silently ignored — one such red test ran `npm version` against this
