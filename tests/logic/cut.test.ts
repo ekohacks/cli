@@ -17,7 +17,8 @@ const runCut = ({
   npm = NpmWrapper.createNull(),
   gh = GhWrapper.createNull(),
   narrate = (_line: string) => {},
-} = {}) => cut({ version, changelog, report, git, npm, gh, narrate, pollDelayMs: 0 });
+  confirm = (_question: string) => Promise.resolve(true),
+} = {}) => cut({ version, changelog, report, git, npm, gh, narrate, confirm, pollDelayMs: 0 });
 
 describe('cut', () => {
   it('walks the rail in order and merges on green', async () => {
@@ -74,6 +75,24 @@ describe('cut', () => {
 
     expect(result).toEqual({ stopped: 'preflight failed: on main' });
     expect(actions.data).toEqual([]);
+  });
+
+  it('asks before merging and stops on no', async () => {
+    const gh = GhWrapper.createNull({ prNumber: 154 });
+    const merges = gh.trackMerges();
+    const questions: string[] = [];
+
+    const result = await runCut({
+      gh,
+      confirm: (question) => {
+        questions.push(question);
+        return Promise.resolve(false);
+      },
+    });
+
+    expect(result).toEqual({ stopped: 'merge not approved' });
+    expect(questions).toEqual(['merge pr #154?']);
+    expect(merges.data).toEqual([]);
   });
 
   it('stops with the failing check named when ci is red', async () => {
