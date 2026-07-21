@@ -34,7 +34,11 @@ export class NpmWrapper {
     });
   }
 
-  private constructor(private readonly runNpm: RunNpm) {}
+  private readonly runNpm: RunNpm;
+
+  private constructor(runNpm: RunNpm) {
+    this.runNpm = runNpm;
+  }
 
   async publishedVersion(pkg: string): Promise<string | undefined> {
     const result = await this.runNpm(['view', pkg, 'version']);

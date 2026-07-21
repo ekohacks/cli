@@ -23,7 +23,11 @@ export class ProcessRunner {
     return new ProcessRunner((command) => Promise.resolve(commands[command] ?? { exitCode: 0 }));
   }
 
-  private constructor(private readonly runCommand: RunCommand) {}
+  private readonly runCommand: RunCommand;
+
+  private constructor(runCommand: RunCommand) {
+    this.runCommand = runCommand;
+  }
 
   run(command: string): Promise<CommandResult> {
     return this.runCommand(command);

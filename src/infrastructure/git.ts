@@ -27,7 +27,11 @@ export class GitWrapper {
     return new GitWrapper((args) => Promise.resolve(outputs[args.join(' ')] ?? ''));
   }
 
-  private constructor(private readonly runGit: RunGit) {}
+  private readonly runGit: RunGit;
+
+  private constructor(runGit: RunGit) {
+    this.runGit = runGit;
+  }
 
   async currentBranch(): Promise<string> {
     return (await this.runGit(['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
