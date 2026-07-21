@@ -20,6 +20,12 @@ describe('GitWrapper (nulled)', () => {
     expect(await git.mainInSyncWithOrigin()).toBe(false);
   });
 
+  it('answers the configured version on main', async () => {
+    const git = GitWrapper.createNull({ versionOnMain: '0.4.1' });
+
+    expect(await git.versionOnMain()).toBe('0.4.1');
+  });
+
   it('answers whether a branch exists', async () => {
     const git = GitWrapper.createNull({ existingBranches: ['release/v0.5.0'] });
 
