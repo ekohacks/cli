@@ -19,6 +19,7 @@ export const cut = async ({
   npm,
   gh,
   narrate,
+  confirm = () => Promise.resolve(true),
   pollDelayMs = 15_000,
 }: {
   version: string;
@@ -28,6 +29,7 @@ export const cut = async ({
   npm: NpmWrapper;
   gh: GhWrapper;
   narrate: (line: string) => void;
+  confirm?: (question: string) => Promise<boolean>;
   pollDelayMs?: number;
 }): Promise<CutResult> => {
   const failed = report.checks.filter((check) => !check.passed);
@@ -63,6 +65,10 @@ export const cut = async ({
   const failing = checks.find((check) => !check.passed);
   if (failing !== undefined) {
     return { stopped: `check ${failing.name} failed` };
+  }
+
+  if (!(await confirm(`merge pr #${number}?`))) {
+    return { stopped: 'merge not approved' };
   }
 
   await gh.mergePr(number);
