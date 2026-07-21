@@ -23,6 +23,7 @@ const runShip = ({
     confirm,
     narrate,
     pollDelayMs: 0,
+    findRunAttempts: 2,
     registryAttempts: 2,
   });
 
@@ -54,6 +55,18 @@ describe('ship', () => {
       'publish run green',
       'registry serves ekolite@0.5.0',
     ]);
+  });
+
+  it('waits for the publish run to appear', async () => {
+    const gh = GhWrapper.createNull({ waitingRunRounds: [undefined, 123] });
+    const approvals = gh.trackApprovals();
+    const lines: string[] = [];
+
+    const result = await runShip({ gh, narrate: (line) => lines.push(line) });
+
+    expect(result).toEqual({ shipped: '0.5.0' });
+    expect(approvals.data).toEqual([123]);
+    expect(lines).toContain('waiting for the publish run to appear');
   });
 
   it('stops when there is no waiting publish run', async () => {
