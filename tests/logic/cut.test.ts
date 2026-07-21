@@ -45,9 +45,7 @@ describe('cut', () => {
       { action: 'push' },
     ]);
     expect(bumps.data).toEqual(['0.5.0']);
-    expect(opens.data).toEqual([
-      { title: 'chore: release 0.5.0', body: '- **A thing.** (#160)' },
-    ]);
+    expect(opens.data).toEqual([{ title: 'chore: release 0.5.0', body: '- **A thing.** (#160)' }]);
     expect(merges.data).toEqual([154]);
     expect(lines).toEqual([
       'branched release/v0.5.0',
