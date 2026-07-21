@@ -1,19 +1,21 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { changelogEntryFor } from './changelog.ts';
 import { GhWrapper } from '../infrastructure/gh.ts';
+import { GitWrapper } from '../infrastructure/git.ts';
 import { NpmWrapper } from '../infrastructure/npm.ts';
 
 export type ShipResult = { shipped: string } | { stopped: string };
 
-// The tail of RELEASING.md as a policy: cut the GitHub Release, approve the publish
-// gate, follow the run to green, and only report success once the registry serves the
-// version. The one human decision stays human: the gate is never approved without the
-// confirm answering yes.
+// The tail of RELEASING.md as a policy: refuse a cut that has not landed on main, cut
+// the GitHub Release, approve the publish gate, follow the run to green, and only
+// report success once the registry serves the version. The one human decision stays
+// human: the gate is never approved without the confirm answering yes.
 export const ship = async ({
   version,
   changelog,
   pkg,
   gh,
+  git,
   npm,
   confirm,
   confirmRelease = () => Promise.resolve(true),
@@ -27,6 +29,7 @@ export const ship = async ({
   changelog: string;
   pkg: string;
   gh: GhWrapper;
+  git: GitWrapper;
   npm: NpmWrapper;
   confirm: (question: string) => Promise<boolean>;
   confirmRelease?: (question: string) => Promise<boolean>;
@@ -36,6 +39,13 @@ export const ship = async ({
   registryAttempts?: number;
   workflow?: string;
 }): Promise<ShipResult> => {
+  const onMain = await git.versionOnMain();
+  if (onMain !== version) {
+    return {
+      stopped: `main carries ${onMain ?? 'no version'}, not ${version}: the cut looks unfinished, run ekohacks release cut ${version}`,
+    };
+  }
+
   const tag = `v${version}`;
   if (!(await confirmRelease(`cut release ${tag}?`))) {
     return { stopped: 'release not approved' };

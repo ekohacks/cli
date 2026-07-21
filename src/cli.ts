@@ -121,6 +121,7 @@ if (subcommand === 'ship') {
     changelog,
     pkg,
     gh: GhWrapper.create(),
+    git: GitWrapper.create(),
     npm: NpmWrapper.create(),
     confirm,
     narrate,
