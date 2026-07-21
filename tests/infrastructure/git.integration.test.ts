@@ -59,6 +59,27 @@ describe('GitWrapper (integration)', () => {
     expect(await git.mainInSyncWithOrigin()).toBe(false);
   });
 
+  it('answers the version main carries on origin, not in the checkout', async () => {
+    const dir = throwawayRepo();
+    const run = (...args: string[]) => execFileSync('git', args, { cwd: dir });
+    writeFileSync(join(dir, 'package.json'), '{ "version": "0.4.1" }\n');
+    run('add', 'package.json');
+    run('commit', '-m', 'track a manifest');
+
+    const bare = mkdtempSync(join(tmpdir(), 'ekohacks-origin-'));
+    repos.push(bare);
+    execFileSync('git', ['init', '--bare', bare]);
+    run('remote', 'add', 'origin', bare);
+    run('push', '-u', 'origin', 'main');
+
+    const git = GitWrapper.create({ cwd: dir });
+    expect(await git.versionOnMain()).toBe('0.4.1');
+
+    writeFileSync(join(dir, 'package.json'), '{ "version": "0.5.0" }\n');
+    run('commit', '-am', 'bump that never reaches origin');
+    expect(await git.versionOnMain()).toBe('0.4.1');
+  });
+
   it('branches, commits and pushes to a real origin', async () => {
     const dir = throwawayRepo();
     const run = (...args: string[]) => execFileSync('git', args, { cwd: dir });
