@@ -5,6 +5,11 @@ const execFileAsync = promisify(execFile);
 
 type RunGit = (args: string[]) => Promise<string>;
 
+export type GitAction =
+  | { action: 'createBranch'; branch: string }
+  | { action: 'commitAll'; message: string }
+  | { action: 'push' };
+
 // Wraps the local git surface the CLI needs. Real and null share every line above the
 // bottom layer: create() shells out to git, createNull() answers from configured output,
 // so the null behaves exactly like the real thing without running git.
@@ -39,5 +44,34 @@ export class GitWrapper {
 
   async workingTreeClean(): Promise<boolean> {
     return (await this.runGit(['status', '--porcelain'])).trim() === '';
+  }
+
+  private readonly actionTrackers: GitAction[][] = [];
+
+  trackActions(): { data: GitAction[] } {
+    const tracker: GitAction[] = [];
+    this.actionTrackers.push(tracker);
+    return { data: tracker };
+  }
+
+  private record(action: GitAction): void {
+    for (const tracker of this.actionTrackers) {
+      tracker.push(action);
+    }
+  }
+
+  async createBranch(branch: string): Promise<void> {
+    await this.runGit(['switch', '-c', branch]);
+    this.record({ action: 'createBranch', branch });
+  }
+
+  async commitAll(message: string): Promise<void> {
+    await this.runGit(['commit', '--all', '--message', message]);
+    this.record({ action: 'commitAll', message });
+  }
+
+  async push(): Promise<void> {
+    await this.runGit(['push', '--set-upstream', 'origin', 'HEAD']);
+    this.record({ action: 'push' });
   }
 }
