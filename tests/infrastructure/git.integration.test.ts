@@ -42,4 +42,29 @@ describe('GitWrapper (integration)', () => {
     writeFileSync(join(dir, 'uncommitted.txt'), 'not yet\n');
     expect(await git.workingTreeClean()).toBe(false);
   });
+
+  it('branches, commits and pushes to a real origin', async () => {
+    const dir = throwawayRepo();
+    const run = (...args: string[]) => execFileSync('git', args, { cwd: dir });
+    writeFileSync(join(dir, 'version.txt'), '0.4.0\n');
+    run('add', 'version.txt');
+    run('commit', '-m', 'track a file');
+
+    const bare = mkdtempSync(join(tmpdir(), 'ekohacks-origin-'));
+    repos.push(bare);
+    execFileSync('git', ['init', '--bare', bare]);
+    run('remote', 'add', 'origin', bare);
+
+    const git = GitWrapper.create({ cwd: dir });
+    await git.createBranch('release/v0.5.0');
+    writeFileSync(join(dir, 'version.txt'), '0.5.0\n');
+    await git.commitAll('chore: release 0.5.0');
+    await git.push();
+
+    expect(await git.currentBranch()).toBe('release/v0.5.0');
+    const pushed = execFileSync('git', ['log', '--format=%s', 'release/v0.5.0'], {
+      cwd: bare,
+    }).toString();
+    expect(pushed).toContain('chore: release 0.5.0');
+  });
 });
