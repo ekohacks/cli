@@ -89,7 +89,8 @@ export const docsCheck = async ({
 }): Promise<DocsReport> => {
   const checks: DocsReport['checks'] = [];
 
-  const carriers = files.filter((file) => file.content.includes(OPEN_MARKER));
+  const scanned = files.filter((file) => !file.path.split('/').includes('.vitepress'));
+  const carriers = scanned.filter((file) => file.content.includes(OPEN_MARKER));
   checks.push(
     carriers.length > 0
       ? { name: 'entry points declared', passed: true }
@@ -122,7 +123,7 @@ export const docsCheck = async ({
     );
   }
 
-  for (const file of files) {
+  for (const file of scanned) {
     const claims = countClaimsIn(file.content);
     if (claims.length === 0) {
       continue;
