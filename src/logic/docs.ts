@@ -28,11 +28,23 @@ export const entryPointsFrom = (pkg: string, exports: unknown): string[] => {
     .map((key) => (key === '.' ? pkg : `${pkg}/${key.slice(2)}`));
 };
 
-const blockRegions = (content: string): string[] =>
-  content
-    .split(OPEN_MARKER)
-    .slice(1)
-    .map((part) => part.split(CLOSE_MARKER)[0]);
+const blockRegions = (content: string): { regions: string[]; unclosed: boolean } => {
+  const regions: string[] = [];
+  let rest = content;
+  for (;;) {
+    const open = rest.indexOf(OPEN_MARKER);
+    if (open === -1) {
+      return { regions, unclosed: false };
+    }
+    const afterOpen = rest.slice(open + OPEN_MARKER.length);
+    const close = afterOpen.indexOf(CLOSE_MARKER);
+    if (close === -1) {
+      return { regions, unclosed: true };
+    }
+    regions.push(afterOpen.slice(0, close));
+    rest = afterOpen.slice(close + CLOSE_MARKER.length);
+  }
+};
 
 const specifiersIn = (region: string, pkg: string): string[] =>
   [...region.matchAll(/from\s+['"]([^'"]+)['"]|import\s+['"]([^'"]+)['"]/g)]
@@ -70,9 +82,12 @@ export const docsCheck = async ({
   const entries = entryPointsFrom(pkg, exports);
   for (const file of carriers) {
     const name = `entry points in ${file.path}`;
-    const documented = new Set(
-      blockRegions(file.content).flatMap((region) => specifiersIn(region, pkg)),
-    );
+    const { regions, unclosed } = blockRegions(file.content);
+    if (unclosed) {
+      checks.push({ name, passed: false, reason: 'unclosed ekohacks:entry-points block' });
+      continue;
+    }
+    const documented = new Set(regions.flatMap((region) => specifiersIn(region, pkg)));
     const notListed = entries.filter((entry) => !documented.has(entry));
     const notExported = [...documented].filter((specifier) => !entries.includes(specifier));
     const reasons = [
