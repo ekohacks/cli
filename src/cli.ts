@@ -2,7 +2,7 @@
 // The thin shell: read the repo's files, wire the real wrappers, print one line per
 // check and per step, exit 0 only when the command ran to its end. Everything worth
 // testing lives below.
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { GhWrapper } from './infrastructure/gh.ts';
 import { GitWrapper } from './infrastructure/git.ts';
@@ -26,9 +26,17 @@ if (command !== 'release' || version === undefined) {
   process.exit(2);
 }
 
+for (const file of ['CHANGELOG.md', 'package.json', 'package-lock.json']) {
+  if (!existsSync(file)) {
+    console.error(`stopped: no ${file} in this directory`);
+    process.exit(1);
+  }
+}
+
 const read = (file: string) => readFileSync(file, 'utf8');
 const changelog = read('CHANGELOG.md');
-const pkg = (JSON.parse(read('package.json')) as { name: string }).name;
+const manifest = JSON.parse(read('package.json')) as { name: string; version: string };
+const pkg = manifest.name;
 
 const confirm = async (question: string) => {
   const readline = createInterface({ input: process.stdin, output: process.stdout });
@@ -51,6 +59,7 @@ if (subcommand === undefined) {
     confirm,
     narrate,
     yes,
+    currentVersion: manifest.version,
   });
 
   if ('stopped' in result) {
@@ -104,6 +113,7 @@ const result = await cut({
   npm: NpmWrapper.create(),
   gh: GhWrapper.create(),
   narrate,
+  currentVersion: manifest.version,
 });
 
 if ('stopped' in result) {
