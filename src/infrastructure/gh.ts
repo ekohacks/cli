@@ -37,4 +37,19 @@ export class GhWrapper {
     this.round += 1;
     return Promise.resolve(this.checkRounds[index] ?? []);
   }
+
+  private readonly mergeTrackers: number[][] = [];
+
+  trackMerges(): { data: number[] } {
+    const tracker: number[] = [];
+    this.mergeTrackers.push(tracker);
+    return { data: tracker };
+  }
+
+  mergePr(prNumber: number): Promise<void> {
+    for (const tracker of this.mergeTrackers) {
+      tracker.push(prNumber);
+    }
+    return Promise.resolve();
+  }
 }
