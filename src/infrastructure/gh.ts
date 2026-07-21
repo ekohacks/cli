@@ -55,6 +55,7 @@ export class GhWrapper {
   } = {}): GhWrapper {
     let round = 0;
     let runRound = 0;
+    let waitingRound = 0;
     return new GhWrapper((args) => {
       if (args[0] === 'run' && args[1] === 'view') {
         const index = Math.min(runRound, runRounds.length - 1);
@@ -68,7 +69,9 @@ export class GhWrapper {
         return Promise.resolve({ exitCode: 0, stdout: `${JSON.stringify(row)}\n`, stderr: '' });
       }
       if (args[0] === 'run' && args[1] === 'list') {
-        const waiting = waitingRunRounds[0];
+        const index = Math.min(waitingRound, waitingRunRounds.length - 1);
+        waitingRound += 1;
+        const waiting = waitingRunRounds[index];
         const rows = waiting === undefined ? [] : [{ databaseId: waiting }];
         return Promise.resolve({ exitCode: 0, stdout: `${JSON.stringify(rows)}\n`, stderr: '' });
       }
