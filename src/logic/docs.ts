@@ -123,14 +123,21 @@ export const docsCheck = async ({
   }
 
   for (const file of files) {
-    const wrong = countClaimsIn(file.content).filter((claim) => claim !== entries.length);
-    if (wrong.length > 0) {
-      checks.push({
-        name: `entry count in ${file.path}`,
-        passed: false,
-        reason: `claims ${wrong.join(' and ')} entry points, exports has ${entries.length}`,
-      });
+    const claims = countClaimsIn(file.content);
+    if (claims.length === 0) {
+      continue;
     }
+    const name = `entry count in ${file.path}`;
+    const wrong = claims.filter((claim) => claim !== entries.length);
+    checks.push(
+      wrong.length > 0
+        ? {
+            name,
+            passed: false,
+            reason: `claims ${wrong.join(' and ')} entry points, exports has ${entries.length}`,
+          }
+        : { name, passed: true },
+    );
   }
 
   return { checks };
