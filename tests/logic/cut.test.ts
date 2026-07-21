@@ -20,7 +20,18 @@ const runCut = ({
   confirm = (_question: string) => Promise.resolve(true),
   currentVersion = undefined as string | undefined,
 } = {}) =>
-  cut({ version, changelog, report, git, npm, gh, narrate, confirm, currentVersion, pollDelayMs: 0 });
+  cut({
+    version,
+    changelog,
+    report,
+    git,
+    npm,
+    gh,
+    narrate,
+    confirm,
+    currentVersion,
+    pollDelayMs: 0,
+  });
 
 describe('cut', () => {
   it('walks the rail in order and merges on green', async () => {
