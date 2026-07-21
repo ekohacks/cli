@@ -12,6 +12,7 @@ const runShip = ({
   gh = GhWrapper.createNull({ waitingRunRounds: [123] }),
   npm = NpmWrapper.createNull({ publishedVersions: { ekolite: '0.5.0' } }),
   confirm = (_question: string) => Promise.resolve(true),
+  confirmRelease = (_question: string) => Promise.resolve(true),
   narrate = (_line: string) => {},
 } = {}) =>
   ship({
@@ -21,6 +22,7 @@ const runShip = ({
     gh,
     npm,
     confirm,
+    confirmRelease,
     narrate,
     pollDelayMs: 0,
     findRunAttempts: 2,
@@ -55,6 +57,24 @@ describe('ship', () => {
       'publish run green',
       'registry serves ekolite@0.5.0',
     ]);
+  });
+
+  it('asks before cutting the release and stops on no', async () => {
+    const gh = GhWrapper.createNull({ waitingRunRounds: [123] });
+    const releases = gh.trackReleases();
+    const questions: string[] = [];
+
+    const result = await runShip({
+      gh,
+      confirmRelease: (question) => {
+        questions.push(question);
+        return Promise.resolve(false);
+      },
+    });
+
+    expect(result).toEqual({ stopped: 'release not approved' });
+    expect(questions).toEqual(['cut release v0.5.0?']);
+    expect(releases.data).toEqual([]);
   });
 
   it('waits for the publish run to appear', async () => {
