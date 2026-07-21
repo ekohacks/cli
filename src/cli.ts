@@ -1,26 +1,34 @@
 #!/usr/bin/env node
 // The thin shell: read the repo's files, wire the real wrappers, print one line per
-// check, exit 0 only when every check passes. Everything worth testing lives below.
+// check and per step, exit 0 only when the command ran to its end. Everything worth
+// testing lives below.
 import { readFileSync } from 'node:fs';
+import { GhWrapper } from './infrastructure/gh.ts';
 import { GitWrapper } from './infrastructure/git.ts';
 import { NpmWrapper } from './infrastructure/npm.ts';
 import { ProcessRunner } from './infrastructure/process.ts';
+import { cut } from './logic/cut.ts';
 import { preflight } from './logic/preflight.ts';
 
 const [command, subcommand, version] = process.argv.slice(2);
 
-if (command !== 'release' || subcommand !== 'preflight' || version === undefined) {
-  console.error('usage: ekohacks release preflight <version>');
+if (
+  command !== 'release' ||
+  (subcommand !== 'preflight' && subcommand !== 'cut') ||
+  version === undefined
+) {
+  console.error('usage: ekohacks release <preflight|cut> <version>');
   process.exit(2);
 }
 
 const read = (file: string) => readFileSync(file, 'utf8');
+const changelog = read('CHANGELOG.md');
 const pkg = (JSON.parse(read('package.json')) as { name: string }).name;
 
 const report = await preflight({
   version,
   pkg,
-  changelog: read('CHANGELOG.md'),
+  changelog,
   lockfile: read('package-lock.json'),
   npm: NpmWrapper.create(),
   git: GitWrapper.create(),
@@ -30,4 +38,23 @@ const report = await preflight({
 for (const check of report.checks) {
   console.log(check.passed ? `  ok    ${check.name}` : `  FAIL  ${check.name}: ${check.reason}`);
 }
-process.exit(report.checks.every((check) => check.passed) ? 0 : 1);
+
+if (subcommand === 'preflight') {
+  process.exit(report.checks.every((check) => check.passed) ? 0 : 1);
+}
+
+const result = await cut({
+  version,
+  changelog,
+  report,
+  git: GitWrapper.create(),
+  npm: NpmWrapper.create(),
+  gh: GhWrapper.create(),
+  narrate: (line) => console.log(`  ${line}`),
+});
+
+if ('stopped' in result) {
+  console.error(`stopped: ${result.stopped}`);
+  process.exit(1);
+}
+process.exit(0);
