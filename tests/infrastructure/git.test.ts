@@ -20,6 +20,13 @@ describe('GitWrapper (nulled)', () => {
     expect(await git.mainInSyncWithOrigin()).toBe(false);
   });
 
+  it('answers whether a branch exists', async () => {
+    const git = GitWrapper.createNull({ existingBranches: ['release/v0.5.0'] });
+
+    expect(await git.branchExists('release/v0.5.0')).toBe(true);
+    expect(await git.branchExists('release/v9.9.9')).toBe(false);
+  });
+
   it('records branch, commit and push on its output tracker', async () => {
     const git = GitWrapper.createNull();
     const actions = git.trackActions();
