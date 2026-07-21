@@ -146,4 +146,21 @@ describe('docs check', () => {
       reason: 'unclosed ekohacks:entry-points block',
     });
   });
+
+  it('fails the count check when the prose claims the wrong number of entry points', async () => {
+    const files = [
+      {
+        path: 'docs/quick-start.md',
+        content: `Four entry points:\n\n${blockWith('ekolite', 'ekolite/react')}`,
+      },
+    ];
+
+    const report = await runDocsCheck({ files });
+
+    expect(report.checks).toContainEqual({
+      name: 'entry count in docs/quick-start.md',
+      passed: false,
+      reason: 'claims 4 entry points, exports has 2',
+    });
+  });
 });
