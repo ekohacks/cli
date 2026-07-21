@@ -2,6 +2,18 @@
 
 All notable changes to `ekohacks` are recorded here.
 
+## 0.2.0
+
+### Added
+
+- **`ekohacks docs check`.** The docs drift gate: reads a package's real public entry
+  points from the `package.json` exports map and fails, by name, when the docs disagree
+  — an entry missing from the `<!-- ekohacks:entry-points -->` block the tool owns, a
+  documented entry gone from the exports, an "N entry points" prose claim with the
+  wrong number, or a broken VitePress build. Born from EkoLite 0.4.0 shipping a wrong
+  public surface to the auto-deployed docs site; exits 0 only when the docs match the
+  shipped exports.
+
 ## 0.1.1
 
 ### Fixed

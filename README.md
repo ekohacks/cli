@@ -8,6 +8,8 @@ We run a distributed team shipping open source to npm with strict TDD and trunk 
 
 The release command is built: the four stories in [`stories/`](stories/) are implemented, each delivered red first — a failing test is committed and reviewed before any production code exists. The suite is the specification. The acceptance test for the whole is the next real EkoLite release, run with `ekohacks release <version>`.
 
+The second command is `ekohacks docs check`, specified in [`stories/6-docs-check.md`](stories/6-docs-check.md): a gate that fails when a package's docs drift from its shipped exports map, born from the EkoLite 0.4.0 release shipping a wrong public surface. Its acceptance test is the same command run inside EkoLite.
+
 ## How this is built
 
 - A tested core policy behind nullable infrastructure, in the style of [James Shore's Testing Without Mocks](https://www.jamesshore.com/v2/projects/nullables): real wrappers around `git`, `gh` and `npm`, each with a `createNull()` that answers with configurable responses and records what was asked of it. No mocks, no spies.
