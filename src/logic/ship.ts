@@ -55,7 +55,7 @@ export const ship = async ({
     state = await gh.run(waiting.id);
   }
   if (!state.passed) {
-    throw new Error(`publish run failed: ${state.url}`);
+    return { stopped: `publish run failed: ${state.url}` };
   }
   narrate('publish run green');
 
