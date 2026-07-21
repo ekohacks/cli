@@ -16,6 +16,7 @@ export const ship = async ({
   gh,
   npm,
   confirm,
+  confirmRelease = () => Promise.resolve(true),
   narrate,
   pollDelayMs = 15_000,
   findRunAttempts = 8,
@@ -28,6 +29,7 @@ export const ship = async ({
   gh: GhWrapper;
   npm: NpmWrapper;
   confirm: (question: string) => Promise<boolean>;
+  confirmRelease?: (question: string) => Promise<boolean>;
   narrate: (line: string) => void;
   pollDelayMs?: number;
   findRunAttempts?: number;
@@ -35,6 +37,9 @@ export const ship = async ({
   workflow?: string;
 }): Promise<ShipResult> => {
   const tag = `v${version}`;
+  if (!(await confirmRelease(`cut release ${tag}?`))) {
+    return { stopped: 'release not approved' };
+  }
   const notes = changelogEntryFor(changelog, version) ?? '';
   await gh.createRelease({ tag, title: tag, notes });
   narrate(`release ${tag} cut`);
