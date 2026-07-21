@@ -28,7 +28,18 @@ export class GhWrapper {
     this.checkRounds = checkRounds;
   }
 
-  openPr(_options: OpenPrOptions): Promise<{ number: number }> {
+  private readonly openTrackers: OpenPrOptions[][] = [];
+
+  trackOpens(): { data: OpenPrOptions[] } {
+    const tracker: OpenPrOptions[] = [];
+    this.openTrackers.push(tracker);
+    return { data: tracker };
+  }
+
+  openPr(options: OpenPrOptions): Promise<{ number: number }> {
+    for (const tracker of this.openTrackers) {
+      tracker.push(options);
+    }
     return Promise.resolve({ number: this.prNumber });
   }
 
