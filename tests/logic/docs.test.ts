@@ -94,4 +94,12 @@ describe('docs check', () => {
 
     expect(report.checks).toContainEqual({ name: 'entry points in README.md', passed: true });
   });
+
+  it('treats a package without an exports map as its own single entry point', async () => {
+    const files = [{ path: 'README.md', content: blockWith('ekolite') }];
+
+    const report = await runDocsCheck({ exports: undefined, files });
+
+    expect(report.checks).toContainEqual({ name: 'entry points in README.md', passed: true });
+  });
 });
