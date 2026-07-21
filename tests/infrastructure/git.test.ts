@@ -14,6 +14,12 @@ describe('GitWrapper (nulled)', () => {
     expect(await git.workingTreeClean()).toBe(false);
   });
 
+  it('answers the configured origin sync state', async () => {
+    const git = GitWrapper.createNull({ behindOrigin: true });
+
+    expect(await git.mainInSyncWithOrigin()).toBe(false);
+  });
+
   it('records branch, commit and push on its output tracker', async () => {
     const git = GitWrapper.createNull();
     const actions = git.trackActions();
