@@ -38,6 +38,9 @@ export const cut = async ({
   }
 
   const branch = `release/v${version}`;
+  if (await git.branchExists(branch)) {
+    return { stopped: `branch ${branch} already exists from an earlier cut` };
+  }
   await git.createBranch(branch);
   narrate(`branched ${branch}`);
 
