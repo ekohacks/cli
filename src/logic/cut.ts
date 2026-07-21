@@ -56,7 +56,7 @@ export const cut = async ({
   narrate(`opened pr #${number}`);
 
   let checks = await gh.checks(number);
-  while (!checks.every((check) => check.concluded)) {
+  while (checks.length === 0 || checks.some((check) => !check.concluded)) {
     narrate('waiting for checks');
     await delay(pollDelayMs);
     checks = await gh.checks(number);
