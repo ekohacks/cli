@@ -57,6 +57,15 @@ export const preflight = async ({
       ? { name: 'on main', passed: true }
       : { name: 'on main', passed: false, reason: `on ${branch}, not main` };
 
+  const inSync = await git.mainInSyncWithOrigin();
+  const syncCheck: PreflightCheck = inSync
+    ? { name: 'in sync with origin', passed: true }
+    : {
+        name: 'in sync with origin',
+        passed: false,
+        reason: 'main does not match origin/main',
+      };
+
   const treeClean = await git.workingTreeClean();
   const treeCheck: PreflightCheck = treeClean
     ? { name: 'clean working tree', passed: true }
@@ -81,6 +90,14 @@ export const preflight = async ({
       : { name: 'package smoke', passed: false, reason: `${SMOKE_COMMAND} failed` };
 
   return {
-    checks: [changelogCheck, versionCheck, branchCheck, treeCheck, lockfileCheck, smokeCheck],
+    checks: [
+      changelogCheck,
+      versionCheck,
+      branchCheck,
+      syncCheck,
+      treeCheck,
+      lockfileCheck,
+      smokeCheck,
+    ],
   };
 };
