@@ -24,10 +24,13 @@ export class GitWrapper {
   static createNull({
     branch = 'main',
     dirty = false,
-  }: { branch?: string; dirty?: boolean } = {}): GitWrapper {
+    behindOrigin = false,
+  }: { branch?: string; dirty?: boolean; behindOrigin?: boolean } = {}): GitWrapper {
     const outputs: Record<string, string> = {
       'rev-parse --abbrev-ref HEAD': `${branch}\n`,
       'status --porcelain': dirty ? ' M some-file.ts\n' : '',
+      'rev-parse main': behindOrigin ? 'local\n' : 'shared\n',
+      'rev-parse origin/main': 'shared\n',
     };
     return new GitWrapper((args) => Promise.resolve(outputs[args.join(' ')] ?? ''));
   }
@@ -44,6 +47,13 @@ export class GitWrapper {
 
   async workingTreeClean(): Promise<boolean> {
     return (await this.runGit(['status', '--porcelain'])).trim() === '';
+  }
+
+  async mainInSyncWithOrigin(): Promise<boolean> {
+    await this.runGit(['fetch', 'origin', 'main']);
+    const local = (await this.runGit(['rev-parse', 'main'])).trim();
+    const remote = (await this.runGit(['rev-parse', 'origin/main'])).trim();
+    return local === remote;
   }
 
   private readonly actionTrackers: GitAction[][] = [];
