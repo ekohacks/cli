@@ -23,7 +23,9 @@ export const entryPointsFrom = (pkg: string, exports: unknown): string[] => {
   if (subpaths.length === 0) {
     return [pkg];
   }
-  return subpaths.map((key) => (key === '.' ? pkg : `${pkg}/${key.slice(2)}`));
+  return subpaths
+    .filter((key) => key !== './package.json' && !key.includes('*'))
+    .map((key) => (key === '.' ? pkg : `${pkg}/${key.slice(2)}`));
 };
 
 const blockRegions = (content: string): string[] =>
