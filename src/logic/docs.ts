@@ -1,6 +1,7 @@
 import { ProcessRunner } from '../infrastructure/process.ts';
 
 const OPEN_MARKER = '<!-- ekohacks:entry-points -->';
+const CLOSE_MARKER = '<!-- /ekohacks:entry-points -->';
 
 export interface DocsFile {
   path: string;
@@ -10,6 +11,24 @@ export interface DocsFile {
 export interface DocsReport {
   checks: { name: string; passed: boolean; reason?: string }[];
 }
+
+// The public entry points an exports map declares, as the specifiers a consumer imports:
+// "." is the bare package name, "./react" is pkg/react.
+export const entryPointsFrom = (pkg: string, exports: unknown): string[] =>
+  Object.keys(exports as Record<string, unknown>).map((key) =>
+    key === '.' ? pkg : `${pkg}/${key.slice(2)}`,
+  );
+
+const blockRegions = (content: string): string[] =>
+  content
+    .split(OPEN_MARKER)
+    .slice(1)
+    .map((part) => part.split(CLOSE_MARKER)[0]);
+
+const specifiersIn = (region: string): string[] =>
+  [...region.matchAll(/from\s+['"]([^'"]+)['"]|import\s+['"]([^'"]+)['"]/g)].map(
+    ([, fromSpecifier, bareSpecifier]) => fromSpecifier ?? bareSpecifier,
+  );
 
 // The drift detector as a policy: the exports map is the truth, the docs carry their
 // claims in a block the tool owns, and every mismatch is a named check with the reason
@@ -38,6 +57,19 @@ export const docsCheck = async ({
           reason: `no docs file carries an ${OPEN_MARKER} block`,
         },
   );
+
+  const entries = entryPointsFrom(pkg, exports);
+  const file = carriers[0];
+  if (file !== undefined) {
+    const name = `entry points in ${file.path}`;
+    const documented = new Set(blockRegions(file.content).flatMap(specifiersIn));
+    const notListed = entries.filter((entry) => !documented.has(entry));
+    checks.push(
+      notListed.length > 0
+        ? { name, passed: false, reason: `not listed: ${notListed.join(', ')}` }
+        : { name, passed: true },
+    );
+  }
 
   return { checks };
 };
