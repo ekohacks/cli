@@ -30,6 +30,11 @@ export const cut = async ({
   narrate: (line: string) => void;
   pollDelayMs?: number;
 }): Promise<CutResult> => {
+  const failed = report.checks.filter((check) => !check.passed);
+  if (failed.length > 0) {
+    return { stopped: `preflight failed: ${failed.map((check) => check.name).join(', ')}` };
+  }
+
   const branch = `release/v${version}`;
   await git.createBranch(branch);
   narrate(`branched ${branch}`);
