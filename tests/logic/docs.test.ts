@@ -70,4 +70,20 @@ describe('docs check', () => {
       reason: 'not in exports: ekolite/legacy',
     });
   });
+
+  it('checks every file that carries a block, each under its own name', async () => {
+    const files = [
+      { path: 'README.md', content: README },
+      { path: 'docs/quick-start.md', content: blockWith('ekolite') },
+    ];
+
+    const report = await runDocsCheck({ files });
+
+    expect(report.checks).toContainEqual({ name: 'entry points in README.md', passed: true });
+    expect(report.checks).toContainEqual({
+      name: 'entry points in docs/quick-start.md',
+      passed: false,
+      reason: 'not listed: ekolite/react',
+    });
+  });
 });
