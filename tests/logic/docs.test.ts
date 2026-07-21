@@ -132,4 +132,18 @@ describe('docs check', () => {
 
     expect(report.checks).toContainEqual({ name: 'entry points in README.md', passed: true });
   });
+
+  it('fails an unclosed block instead of guessing where it ends', async () => {
+    const files = [
+      { path: 'README.md', content: "<!-- ekohacks:entry-points -->\nimport 'ekolite';\n" },
+    ];
+
+    const report = await runDocsCheck({ files });
+
+    expect(report.checks).toContainEqual({
+      name: 'entry points in README.md',
+      passed: false,
+      reason: 'unclosed ekohacks:entry-points block',
+    });
+  });
 });
