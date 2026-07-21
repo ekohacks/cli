@@ -30,5 +30,8 @@
     "prettier": "^3.9.5",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
+  },
+  "bin": {
+    "ekohacks": "src/cli.ts"
   }
 }
