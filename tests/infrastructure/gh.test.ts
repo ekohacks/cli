@@ -72,4 +72,18 @@ describe('GhWrapper (nulled)', () => {
 
     expect(approvals.data).toEqual([123]);
   });
+
+  it('answers configured run rounds in order, repeating the last', async () => {
+    const url = 'https://github.com/nulled/nulled/actions/runs/123';
+    const gh = GhWrapper.createNull({
+      runRounds: [
+        { concluded: false, passed: false, url },
+        { concluded: true, passed: false, url },
+      ],
+    });
+
+    expect(await gh.run(123)).toEqual({ concluded: false, passed: false, url });
+    expect(await gh.run(123)).toEqual({ concluded: true, passed: false, url });
+    expect(await gh.run(123)).toEqual({ concluded: true, passed: false, url });
+  });
 });
