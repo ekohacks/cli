@@ -64,9 +64,14 @@ export const docsCheck = async ({
     const name = `entry points in ${file.path}`;
     const documented = new Set(blockRegions(file.content).flatMap(specifiersIn));
     const notListed = entries.filter((entry) => !documented.has(entry));
+    const notExported = [...documented].filter((specifier) => !entries.includes(specifier));
+    const reasons = [
+      ...(notListed.length > 0 ? [`not listed: ${notListed.join(', ')}`] : []),
+      ...(notExported.length > 0 ? [`not in exports: ${notExported.join(', ')}`] : []),
+    ];
     checks.push(
-      notListed.length > 0
-        ? { name, passed: false, reason: `not listed: ${notListed.join(', ')}` }
+      reasons.length > 0
+        ? { name, passed: false, reason: reasons.join('; ') }
         : { name, passed: true },
     );
   }
