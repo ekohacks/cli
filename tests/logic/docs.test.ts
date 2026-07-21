@@ -36,4 +36,16 @@ describe('docs check', () => {
       reason: 'no docs file carries an <!-- ekohacks:entry-points --> block',
     });
   });
+
+  it('fails the file check when a public entry point is not listed', async () => {
+    const exports = { ...EXPORTS, './config': { import: './dist/server/config.js' } };
+
+    const report = await runDocsCheck({ exports });
+
+    expect(report.checks).toContainEqual({
+      name: 'entry points in README.md',
+      passed: false,
+      reason: 'not listed: ekolite/config',
+    });
+  });
 });
