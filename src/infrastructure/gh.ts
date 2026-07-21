@@ -47,6 +47,10 @@ export class GhWrapper {
         const rows = waitingRun === undefined ? [] : [{ databaseId: waitingRun }];
         return Promise.resolve({ exitCode: 0, stdout: `${JSON.stringify(rows)}\n`, stderr: '' });
       }
+      if (args[0] === 'api' && args[1]?.endsWith('pending_deployments') === true) {
+        const rows = [{ environment: { id: 1, name: 'release' } }];
+        return Promise.resolve({ exitCode: 0, stdout: `${JSON.stringify(rows)}\n`, stderr: '' });
+      }
       if (args[0] === 'pr' && args[1] === 'create') {
         return Promise.resolve({
           exitCode: 0,
@@ -122,6 +126,42 @@ export class GhWrapper {
     const rows = JSON.parse(result.stdout) as { databaseId: number }[];
     const first = rows[0];
     return first === undefined ? undefined : { id: first.databaseId };
+  }
+
+  private readonly approvalTrackers: number[][] = [];
+
+  trackApprovals(): { data: number[] } {
+    const tracker: number[] = [];
+    this.approvalTrackers.push(tracker);
+    return { data: tracker };
+  }
+
+  // The gate approval is the one raw API call in the flow: the pending deployments
+  // endpoint wants the run's waiting environment ids back, marked approved.
+  async approveRun(runId: number): Promise<void> {
+    const path = `repos/{owner}/{repo}/actions/runs/${runId}/pending_deployments`;
+    const pending = await this.runGh(['api', path]);
+    if (pending.exitCode !== 0) {
+      throw new Error(`gh api ${path} failed:\n${pending.stderr}`);
+    }
+    const rows = JSON.parse(pending.stdout) as { environment: { id: number } }[];
+    const approval = await this.runGh([
+      'api',
+      '-X',
+      'POST',
+      path,
+      ...rows.flatMap((row) => ['-F', `environment_ids[]=${row.environment.id}`]),
+      '-f',
+      'state=approved',
+      '-f',
+      'comment=approved by ekohacks release ship',
+    ]);
+    if (approval.exitCode !== 0) {
+      throw new Error(`gh api -X POST ${path} failed:\n${approval.stderr}`);
+    }
+    for (const tracker of this.approvalTrackers) {
+      tracker.push(runId);
+    }
   }
 
   // gh pr checks exits non-zero while checks are pending or failing, so the answer is in
