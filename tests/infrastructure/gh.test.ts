@@ -22,4 +22,13 @@ describe('GhWrapper (nulled)', () => {
     expect(await gh.checks(7)).toEqual([{ name: 'build', concluded: true, passed: true }]);
     expect(await gh.checks(7)).toEqual([{ name: 'build', concluded: true, passed: true }]);
   });
+
+  it('records merged pr numbers on its output tracker', async () => {
+    const gh = GhWrapper.createNull();
+    const merges = gh.trackMerges();
+
+    await gh.mergePr(154);
+
+    expect(merges.data).toEqual([154]);
+  });
 });
