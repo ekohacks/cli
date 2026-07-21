@@ -24,6 +24,7 @@ export const release = async ({
   confirm,
   narrate,
   yes = false,
+  currentVersion,
   pollDelayMs,
   findRunAttempts,
   registryAttempts,
@@ -39,6 +40,7 @@ export const release = async ({
   confirm: (question: string) => Promise<boolean>;
   narrate: (line: string) => void;
   yes?: boolean;
+  currentVersion?: string;
   pollDelayMs?: number;
   findRunAttempts?: number;
   registryAttempts?: number;
@@ -59,6 +61,7 @@ export const release = async ({
     gh,
     narrate,
     confirm: skippable,
+    currentVersion,
     pollDelayMs,
   });
   if ('stopped' in cutResult) {

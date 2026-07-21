@@ -20,6 +20,7 @@ export const cut = async ({
   gh,
   narrate,
   confirm = () => Promise.resolve(true),
+  currentVersion,
   pollDelayMs = 15_000,
 }: {
   version: string;
@@ -30,11 +31,18 @@ export const cut = async ({
   gh: GhWrapper;
   narrate: (line: string) => void;
   confirm?: (question: string) => Promise<boolean>;
+  currentVersion?: string;
   pollDelayMs?: number;
 }): Promise<CutResult> => {
   const failed = report.checks.filter((check) => !check.passed);
   if (failed.length > 0) {
     return { stopped: `preflight failed: ${failed.map((check) => check.name).join(', ')}` };
+  }
+
+  if (currentVersion === version) {
+    return {
+      stopped: `package.json is already at ${version}: the cut looks finished, run ekohacks release ship ${version}`,
+    };
   }
 
   const branch = `release/v${version}`;
