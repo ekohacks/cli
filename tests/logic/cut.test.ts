@@ -3,10 +3,11 @@ import { GhWrapper } from '../../src/infrastructure/gh.ts';
 import { GitWrapper } from '../../src/infrastructure/git.ts';
 import { NpmWrapper } from '../../src/infrastructure/npm.ts';
 import { cut } from '../../src/logic/cut.ts';
+import type { PreflightReport } from '../../src/logic/preflight.ts';
 
 const CHANGELOG = ['# Changelog', '', '## 0.5.0', '', '- **A thing.** (#160)', ''].join('\n');
 
-const GREEN_PREFLIGHT = { checks: [{ name: 'package smoke', passed: true }] };
+const GREEN_PREFLIGHT: PreflightReport = { checks: [{ name: 'package smoke', passed: true }] };
 
 const runCut = ({
   version = '0.5.0',
@@ -57,5 +58,23 @@ describe('cut', () => {
       'waiting for checks',
       'merged pr #154',
     ]);
+  });
+
+  it('refuses to start when preflight is red', async () => {
+    const git = GitWrapper.createNull();
+    const actions = git.trackActions();
+
+    const result = await runCut({
+      report: {
+        checks: [
+          { name: 'on main', passed: false, reason: 'on feature/thing, not main' },
+          { name: 'clean working tree', passed: true },
+        ],
+      },
+      git,
+    });
+
+    expect(result).toEqual({ stopped: 'preflight failed: on main' });
+    expect(actions.data).toEqual([]);
   });
 });
