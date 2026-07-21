@@ -116,4 +116,12 @@ describe('docs check', () => {
 
     expect(report.checks).toContainEqual({ name: 'entry points in README.md', passed: true });
   });
+
+  it('does not count the package.json key in the exports map as an entry point', async () => {
+    const exports = { ...EXPORTS, './package.json': './package.json' };
+
+    const report = await runDocsCheck({ exports });
+
+    expect(report.checks).toContainEqual({ name: 'entry points in README.md', passed: true });
+  });
 });
