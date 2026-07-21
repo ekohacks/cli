@@ -19,7 +19,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky",
-    "test:changed": "vitest run --changed origin/main"
+    "test:changed": "vitest run --changed origin/main",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.1",
