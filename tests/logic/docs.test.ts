@@ -124,4 +124,12 @@ describe('docs check', () => {
 
     expect(report.checks).toContainEqual({ name: 'entry points in README.md', passed: true });
   });
+
+  it('does not count pattern keys in the exports map as entry points', async () => {
+    const exports = { ...EXPORTS, './locales/*': './dist/locales/*.js' };
+
+    const report = await runDocsCheck({ exports });
+
+    expect(report.checks).toContainEqual({ name: 'entry points in README.md', passed: true });
+  });
 });
