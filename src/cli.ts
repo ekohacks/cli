@@ -2,27 +2,73 @@
 // The thin shell: read the repo's files, wire the real wrappers, print one line per
 // check and per step, exit 0 only when the command ran to its end. Everything worth
 // testing lives below.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { GhWrapper } from './infrastructure/gh.ts';
 import { GitWrapper } from './infrastructure/git.ts';
 import { NpmWrapper } from './infrastructure/npm.ts';
 import { ProcessRunner } from './infrastructure/process.ts';
 import { cut } from './logic/cut.ts';
+import { docsCheck, type DocsFile } from './logic/docs.ts';
 import { preflight } from './logic/preflight.ts';
 import { release } from './logic/release.ts';
 import { ship } from './logic/ship.ts';
 
+const USAGE = [
+  'usage: ekohacks release [preflight|cut|ship] <version> [--yes]',
+  '       ekohacks docs check',
+].join('\n');
+
 const argv = process.argv.slice(2);
 const yes = argv.includes('--yes');
 const [command, ...rest] = argv.filter((arg) => arg !== '--yes');
+
+const printChecks = (checks: { name: string; passed: boolean; reason?: string }[]) => {
+  for (const check of checks) {
+    console.log(check.passed ? `  ok    ${check.name}` : `  FAIL  ${check.name}: ${check.reason}`);
+  }
+};
+
+if (command === 'docs') {
+  if (rest.length !== 1 || rest[0] !== 'check') {
+    console.error(USAGE);
+    process.exit(2);
+  }
+  if (!existsSync('package.json')) {
+    console.error('stopped: no package.json in this directory');
+    process.exit(1);
+  }
+  const manifest = JSON.parse(readFileSync('package.json', 'utf8')) as {
+    name: string;
+    exports?: unknown;
+  };
+  const files: DocsFile[] = [];
+  if (existsSync('README.md')) {
+    files.push({ path: 'README.md', content: readFileSync('README.md', 'utf8') });
+  }
+  if (existsSync('docs')) {
+    for (const entry of readdirSync('docs', { recursive: true, encoding: 'utf8' }).sort()) {
+      if (entry.endsWith('.md')) {
+        files.push({ path: `docs/${entry}`, content: readFileSync(`docs/${entry}`, 'utf8') });
+      }
+    }
+  }
+  const report = await docsCheck({
+    pkg: manifest.name,
+    exports: manifest.exports,
+    files,
+    runner: ProcessRunner.create(),
+  });
+  printChecks(report.checks);
+  process.exit(report.checks.every((check) => check.passed) ? 0 : 1);
+}
 
 const first = rest[0];
 const subcommand = first === 'preflight' || first === 'cut' || first === 'ship' ? first : undefined;
 const version = subcommand === undefined ? first : rest[1];
 
 if (command !== 'release' || version === undefined) {
-  console.error('usage: ekohacks release [preflight|cut|ship] <version> [--yes]');
+  console.error(USAGE);
   process.exit(2);
 }
 
@@ -97,9 +143,7 @@ const report = await preflight({
   runner: ProcessRunner.create(),
 });
 
-for (const check of report.checks) {
-  console.log(check.passed ? `  ok    ${check.name}` : `  FAIL  ${check.name}: ${check.reason}`);
-}
+printChecks(report.checks);
 
 if (subcommand === 'preflight') {
   process.exit(report.checks.every((check) => check.passed) ? 0 : 1);
