@@ -1,16 +1,31 @@
-type CommandResults = Record<string, { exitCode: number }>;
+import { exec } from 'node:child_process';
 
-// Wraps the child processes the CLI shells out to. The null answers configured exit codes
-// per command, exit 0 when unconfigured, and never spawns anything; the real side arrives
-// with its own integration test.
+type CommandResult = { exitCode: number };
+type CommandResults = Record<string, CommandResult>;
+type RunCommand = (command: string) => Promise<CommandResult>;
+
+// Wraps the child processes the CLI shells out to. create() runs the command through a
+// real shell and answers its exit code; the null answers configured exit codes per
+// command, exit 0 when unconfigured, and never spawns anything.
 export class ProcessRunner {
-  static createNull({ commands = {} }: { commands?: CommandResults } = {}): ProcessRunner {
-    return new ProcessRunner(commands);
+  static create({ cwd = process.cwd() }: { cwd?: string } = {}): ProcessRunner {
+    return new ProcessRunner(
+      (command) =>
+        new Promise((resolve) => {
+          const child = exec(command, { cwd });
+          child.on('error', () => resolve({ exitCode: 1 }));
+          child.on('exit', (code) => resolve({ exitCode: code ?? 1 }));
+        }),
+    );
   }
 
-  private constructor(private readonly commands: CommandResults) {}
+  static createNull({ commands = {} }: { commands?: CommandResults } = {}): ProcessRunner {
+    return new ProcessRunner((command) => Promise.resolve(commands[command] ?? { exitCode: 0 }));
+  }
 
-  run(command: string): Promise<{ exitCode: number }> {
-    return Promise.resolve(this.commands[command] ?? { exitCode: 0 });
+  private constructor(private readonly runCommand: RunCommand) {}
+
+  run(command: string): Promise<CommandResult> {
+    return this.runCommand(command);
   }
 }
