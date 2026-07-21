@@ -49,7 +49,7 @@ const blockRegions = (content: string): { regions: string[]; unclosed: boolean }
 
 const specifiersIn = (region: string, pkg: string): string[] =>
   [...region.matchAll(/from\s+['"]([^'"]+)['"]|import\s+['"]([^'"]+)['"]/g)]
-    .map(([, fromSpecifier, bareSpecifier]) => fromSpecifier ?? bareSpecifier)
+    .map(([, fromSpecifier, bareSpecifier]) => fromSpecifier ?? bareSpecifier ?? '')
     .filter((specifier) => specifier === pkg || specifier.startsWith(`${pkg}/`));
 
 const COUNT_WORDS: Record<string, number> = {
@@ -71,7 +71,7 @@ const countClaimsIn = (content: string): number[] =>
     ...content.matchAll(
       /\b(\d+|zero|one|two|three|four|five|six|seven|eight|nine|ten)[\s-]+entry[\s-]+points?\b/gi,
     ),
-  ].map(([, claim]) => COUNT_WORDS[claim.toLowerCase()] ?? Number(claim));
+  ].map(([, claim = '']) => COUNT_WORDS[claim.toLowerCase()] ?? Number(claim));
 
 // The drift detector as a policy: the exports map is the truth, the docs carry their
 // claims in a block the tool owns, and every mismatch is a named check with the reason
