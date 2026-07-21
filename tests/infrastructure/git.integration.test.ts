@@ -43,6 +43,22 @@ describe('GitWrapper (integration)', () => {
     expect(await git.workingTreeClean()).toBe(false);
   });
 
+  it('answers the origin sync state of a real repository', async () => {
+    const dir = throwawayRepo();
+    const run = (...args: string[]) => execFileSync('git', args, { cwd: dir });
+    const bare = mkdtempSync(join(tmpdir(), 'ekohacks-origin-'));
+    repos.push(bare);
+    execFileSync('git', ['init', '--bare', bare]);
+    run('remote', 'add', 'origin', bare);
+    run('push', '-u', 'origin', 'main');
+
+    const git = GitWrapper.create({ cwd: dir });
+    expect(await git.mainInSyncWithOrigin()).toBe(true);
+
+    run('commit', '--allow-empty', '-m', 'not pushed');
+    expect(await git.mainInSyncWithOrigin()).toBe(false);
+  });
+
   it('branches, commits and pushes to a real origin', async () => {
     const dir = throwawayRepo();
     const run = (...args: string[]) => execFileSync('git', args, { cwd: dir });
