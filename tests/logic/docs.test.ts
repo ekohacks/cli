@@ -163,4 +163,12 @@ describe('docs check', () => {
       reason: 'claims 4 entry points, exports has 2',
     });
   });
+
+  it('passes every check when the docs match the exports', async () => {
+    const report = await runDocsCheck();
+
+    expect(report.checks).toContainEqual({ name: 'entry points in README.md', passed: true });
+    expect(report.checks).toContainEqual({ name: 'entry count in README.md', passed: true });
+    expect(report.checks.every((check) => check.passed)).toBe(true);
+  });
 });
