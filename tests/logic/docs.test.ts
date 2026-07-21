@@ -171,4 +171,15 @@ describe('docs check', () => {
     expect(report.checks).toContainEqual({ name: 'entry count in README.md', passed: true });
     expect(report.checks.every((check) => check.passed)).toBe(true);
   });
+
+  it('never scans files under .vitepress', async () => {
+    const files = [
+      { path: 'README.md', content: README },
+      { path: 'docs/.vitepress/dist/index.md', content: 'Nine entry points.' },
+    ];
+
+    const report = await runDocsCheck({ files });
+
+    expect(report.checks.every((check) => check.passed)).toBe(true);
+  });
 });
