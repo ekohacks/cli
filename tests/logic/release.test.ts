@@ -83,4 +83,49 @@ describe('release', () => {
     expect(lines).toContain('FAIL on main: on feature/thing, not main');
     expect(bumps.data).toEqual([]);
   });
+
+  it('asks at the merge, the release and the gate', async () => {
+    const questions: string[] = [];
+
+    const result = await runRelease({
+      confirm: (question) => {
+        questions.push(question);
+        return Promise.resolve(true);
+      },
+    });
+
+    expect(result).toEqual({ shipped: '0.5.0' });
+    expect(questions).toEqual([
+      'merge pr #154?',
+      'cut release v0.5.0?',
+      'approve the release gate for run #123?',
+    ]);
+  });
+
+  it('skips the merge and release pauses with --yes, but the gate still asks', async () => {
+    const questions: string[] = [];
+
+    const result = await runRelease({
+      yes: true,
+      confirm: (question) => {
+        questions.push(question);
+        return Promise.resolve(true);
+      },
+    });
+
+    expect(result).toEqual({ shipped: '0.5.0' });
+    expect(questions).toEqual(['approve the release gate for run #123?']);
+  });
+
+  it('an abort at a pause stops the chain there', async () => {
+    const gh = greenGh();
+    const merges = gh.trackMerges();
+    const releases = gh.trackReleases();
+
+    const result = await runRelease({ gh, confirm: () => Promise.resolve(false) });
+
+    expect(result).toEqual({ stopped: 'merge not approved' });
+    expect(merges.data).toEqual([]);
+    expect(releases.data).toEqual([]);
+  });
 });
