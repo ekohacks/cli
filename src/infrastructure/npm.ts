@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 
 type NpmResult = { exitCode: number; stdout: string; stderr: string };
 type RunNpm = (args: string[]) => Promise<NpmResult>;
-type PublishedVersions = Record<string, string>;
+type PublishedVersions = Record<string, string | string[]>;
 
 // Wraps the npm registry surface the CLI needs. Real and null share every line above the
 // bottom layer: create() shells out to npm, createNull() answers from a configured map of
@@ -23,17 +23,20 @@ export class NpmWrapper {
   static createNull({
     publishedVersions = {},
   }: { publishedVersions?: PublishedVersions } = {}): NpmWrapper {
+    const rounds: Record<string, number> = {};
     return new NpmWrapper((args) => {
       if (args[0] === 'version') {
         return Promise.resolve({ exitCode: 0, stdout: `v${args[1]}\n`, stderr: '' });
       }
       const pkg = args[1] ?? '';
-      const version = publishedVersions[pkg];
-      return Promise.resolve(
-        version === undefined
-          ? { exitCode: 1, stdout: '', stderr: `npm error code E404 ${pkg}` }
-          : { exitCode: 0, stdout: `${version}\n`, stderr: '' },
-      );
+      const configured = publishedVersions[pkg];
+      if (configured === undefined) {
+        return Promise.resolve({ exitCode: 1, stdout: '', stderr: `npm error code E404 ${pkg}` });
+      }
+      const list = Array.isArray(configured) ? configured : [configured];
+      const index = Math.min(rounds[pkg] ?? 0, list.length - 1);
+      rounds[pkg] = index + 1;
+      return Promise.resolve({ exitCode: 0, stdout: `${list[index]}\n`, stderr: '' });
     });
   }
 
