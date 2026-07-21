@@ -86,4 +86,12 @@ describe('docs check', () => {
       reason: 'not listed: ekolite/react',
     });
   });
+
+  it('ignores imports of other packages inside the block', async () => {
+    const files = [{ path: 'README.md', content: blockWith('react', 'ekolite', 'ekolite/react') }];
+
+    const report = await runDocsCheck({ files });
+
+    expect(report.checks).toContainEqual({ name: 'entry points in README.md', passed: true });
+  });
 });
