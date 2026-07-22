@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GhWrapper } from '../../src/infrastructure/gh.ts';
+import { GitWrapper } from '../../src/infrastructure/git.ts';
 import { NpmWrapper } from '../../src/infrastructure/npm.ts';
 import { ship } from '../../src/logic/ship.ts';
 
@@ -10,6 +11,7 @@ const runShip = ({
   changelog = CHANGELOG,
   pkg = 'ekolite',
   gh = GhWrapper.createNull({ waitingRunRounds: [123] }),
+  git = GitWrapper.createNull({ versionOnMain: '0.5.0' }),
   npm = NpmWrapper.createNull({ publishedVersions: { ekolite: '0.5.0' } }),
   confirm = (_question: string) => Promise.resolve(true),
   confirmRelease = (_question: string) => Promise.resolve(true),
@@ -20,6 +22,7 @@ const runShip = ({
     changelog,
     pkg,
     gh,
+    git,
     npm,
     confirm,
     confirmRelease,
@@ -30,6 +33,17 @@ const runShip = ({
   });
 
 describe('ship', () => {
+  it('stops when main does not carry the version', async () => {
+    const git = GitWrapper.createNull({ versionOnMain: '0.4.1' });
+
+    const result = await runShip({ git });
+
+    expect(result).toEqual({
+      stopped:
+        'main carries 0.4.1, not 0.5.0: the cut looks unfinished, run ekohacks release cut 0.5.0',
+    });
+  });
+
   it('cuts the release, approves the gate and reports the registry', async () => {
     const url = 'https://github.com/nulled/nulled/actions/runs/123';
     const gh = GhWrapper.createNull({

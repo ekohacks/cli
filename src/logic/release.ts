@@ -73,6 +73,7 @@ export const release = async ({
     changelog,
     pkg,
     gh,
+    git,
     npm,
     confirm,
     confirmRelease: skippable,

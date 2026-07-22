@@ -26,17 +26,20 @@ export class GitWrapper {
     dirty = false,
     behindOrigin = false,
     existingBranches = [],
+    versionOnMain = '0.0.0',
   }: {
     branch?: string;
     dirty?: boolean;
     behindOrigin?: boolean;
     existingBranches?: string[];
+    versionOnMain?: string;
   } = {}): GitWrapper {
     const outputs: Record<string, string> = {
       'rev-parse --abbrev-ref HEAD': `${branch}\n`,
       'status --porcelain': dirty ? ' M some-file.ts\n' : '',
       'rev-parse main': behindOrigin ? 'local\n' : 'shared\n',
       'rev-parse origin/main': 'shared\n',
+      'show origin/main:package.json': `${JSON.stringify({ version: versionOnMain })}\n`,
     };
     for (const existing of existingBranches) {
       outputs[`branch --list ${existing}`] = `  ${existing}\n`;
@@ -62,6 +65,14 @@ export class GitWrapper {
   // real runner's throw-on-nonzero; existence is in the output.
   async branchExists(branch: string): Promise<boolean> {
     return (await this.runGit(['branch', '--list', branch])).trim() !== '';
+  }
+
+  // The version main carries on origin, not in this checkout: the Release targets
+  // GitHub's main, so a stale local package.json must not answer for it.
+  async versionOnMain(): Promise<string | undefined> {
+    await this.runGit(['fetch', 'origin', 'main']);
+    const manifest = await this.runGit(['show', 'origin/main:package.json']);
+    return (JSON.parse(manifest) as { version?: string }).version;
   }
 
   async mainInSyncWithOrigin(): Promise<boolean> {
