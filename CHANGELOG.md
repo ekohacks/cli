@@ -2,6 +2,17 @@
 
 All notable changes to `ekohacks` are recorded here.
 
+## 0.3.0
+
+### Added
+
+- **Ship verifies the cut.** `ekohacks release ship` now reads the version `main`
+  carries on origin before cutting the Release, and stops with the mirror of cut's
+  guard — "main carries 0.1.1, not 0.2.0: the cut looks unfinished, run
+  `ekohacks release cut 0.2.0`" — instead of tagging a Release at the wrong commit.
+  Born from the 0.2.0 release, where exactly that happened and only npm's refusal to
+  publish over an existing version held the line.
+
 ## 0.2.0
 
 ### Added
