@@ -313,6 +313,8 @@ describe('docs sync', () => {
         content: [
           '# ekolite/config',
           '',
+          '<!-- ekohacks:draft -->',
+          '',
           '```ts',
           "import * as config from 'ekolite/config';",
           '',
@@ -322,6 +324,8 @@ describe('docs sync', () => {
           '## What works today',
           '',
           '- TODO: what a reader can rely on today, not what is planned.',
+          '',
+          '<!-- /ekohacks:draft -->',
           '',
           '<!-- TODO: add this page to the sidebar in docs/.vitepress/config.mts:',
           "     { text: 'config', link: '/config' } -->",
