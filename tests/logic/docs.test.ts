@@ -264,4 +264,46 @@ describe('docs sync', () => {
       { path: 'README.md', content: blockWith('react', 'ekolite', 'ekolite/react') },
     ]);
   });
+
+  it('rewrites a word count as a word, keeping the case it was written in', () => {
+    const inStep = blockWith('ekolite', 'ekolite/react');
+    const files = [{ path: 'docs/quick-start.md', content: `Four entry points:\n\n${inStep}` }];
+
+    const result = runDocsSync({ files });
+
+    expect(result.edits).toEqual([
+      { path: 'docs/quick-start.md', content: `Two entry points:\n\n${inStep}` },
+    ]);
+  });
+
+  it('rewrites a digit count as a digit, and every claim in the file', () => {
+    const inStep = blockWith('ekolite', 'ekolite/react');
+    const content = `5 entry points:\n\nAll five entry points ship today.\n\n${inStep}`;
+
+    const result = runDocsSync({ files: [{ path: 'docs/quick-start.md', content }] });
+
+    expect(result.edits).toEqual([
+      {
+        path: 'docs/quick-start.md',
+        content: `2 entry points:\n\nAll two entry points ship today.\n\n${inStep}`,
+      },
+    ]);
+  });
+
+  it('writes a count above ten as a digit, having no word for it', () => {
+    const many = Array.from({ length: 11 }, (_, index) =>
+      index === 0 ? 'ekolite' : `ekolite/m${index}`,
+    );
+    const exports = Object.fromEntries(
+      many.map((_, index) => [index === 0 ? '.' : `./m${index}`, './dist/m.js']),
+    );
+    const inStep = blockWith(...many);
+    const files = [{ path: 'docs/quick-start.md', content: `Four entry points:\n\n${inStep}` }];
+
+    const result = runDocsSync({ exports, files });
+
+    expect(result.edits).toEqual([
+      { path: 'docs/quick-start.md', content: `11 entry points:\n\n${inStep}` },
+    ]);
+  });
 });
