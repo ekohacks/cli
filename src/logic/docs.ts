@@ -156,6 +156,55 @@ export const docsCheck = async ({
   return { checks };
 };
 
+// Walks the same markers blockRegions does, but rebuilds the document around each region so a
+// rewrite can be handed back in place. An unclosed block is left exactly as it was: the check
+// already fails it by name, and guessing where it ends is how a tool eats someone's prose.
+const mapBlocks = (content: string, rewrite: (region: string) => string): string => {
+  let rest = content;
+  let out = '';
+  for (;;) {
+    const open = rest.indexOf(OPEN_MARKER);
+    if (open === -1) {
+      return out + rest;
+    }
+    const afterOpen = rest.slice(open + OPEN_MARKER.length);
+    const close = afterOpen.indexOf(CLOSE_MARKER);
+    if (close === -1) {
+      return out + rest;
+    }
+    out += rest.slice(0, open) + OPEN_MARKER + rewrite(afterOpen.slice(0, close)) + CLOSE_MARKER;
+    rest = afterOpen.slice(close + CLOSE_MARKER.length);
+  }
+};
+
+// A namespace import is the one form the exports map alone can justify: it needs the specifier
+// and nothing else. The local name is the last segment, camel-cased past any character an
+// identifier cannot carry.
+const importLineFor = (specifier: string): string => {
+  const [first = specifier, ...rest] = (specifier.split('/').at(-1) ?? specifier).split(
+    /[^a-zA-Z0-9]+/,
+  );
+  const local = [first, ...rest.map((part) => part.charAt(0).toUpperCase() + part.slice(1))].join(
+    '',
+  );
+  return `import * as ${local} from '${specifier}';`;
+};
+
+const withMissingEntries = (region: string, pkg: string, entries: string[]): string => {
+  const documented = new Set(specifiersIn(region, pkg));
+  const missing = entries.filter((entry) => !documented.has(entry));
+  if (missing.length === 0) {
+    return region;
+  }
+  const lines = region.split('\n');
+  const lastImport = lines.reduce(
+    (found, line, index) => (specifiersIn(line, pkg).length > 0 ? index : found),
+    -1,
+  );
+  lines.splice(lastImport + 1, 0, ...missing.map(importLineFor));
+  return lines.join('\n');
+};
+
 // The mechanical half of the drift the check names: the same inputs, and instead of a report
 // the files whose content should change, each as a whole new body. The shell does the writing,
 // so the policy stays pure — and a file this would leave alone never reaches the caller, which
@@ -168,4 +217,14 @@ export const docsSync = ({
   pkg: string;
   exports: unknown;
   files: DocsFile[];
-}): DocsSyncResult => ({ edits: [] });
+}): DocsSyncResult => {
+  const entries = entryPointsFrom(pkg, exports);
+  const edits: DocsFile[] = [];
+  for (const file of files) {
+    const content = mapBlocks(file.content, (region) => withMissingEntries(region, pkg, entries));
+    if (content !== file.content) {
+      edits.push({ path: file.path, content });
+    }
+  }
+  return { edits };
+};
