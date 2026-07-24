@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ProcessRunner } from '../../src/infrastructure/process.ts';
-import { docsCheck, docsSync } from '../../src/logic/docs.ts';
+import { docsCheck, docsSync, draftPrompts } from '../../src/logic/docs.ts';
 
 const EXPORTS = {
   '.': { import: './dist/server/index.js' },
@@ -362,5 +362,54 @@ describe('docs sync', () => {
     expect(result.edits).toEqual([
       { path: 'docs/quick-start.md', content: `11 entry points:\n\n${inStep}` },
     ]);
+  });
+});
+
+const draftStub = (specifier: string) =>
+  [
+    `# ${specifier}`,
+    '',
+    '<!-- ekohacks:draft -->',
+    '',
+    '```ts',
+    `import * as thing from '${specifier}';`,
+    '```',
+    '',
+    '<!-- /ekohacks:draft -->',
+    '',
+  ].join('\n');
+
+describe('docs draft', () => {
+  const exports = { ...EXPORTS, './config': { import: './dist/server/config.js' } };
+  const overview = {
+    path: 'docs/overview.md',
+    content: '# Overview\n\nEkoLite is a real time backend.\n',
+  };
+  const quickStart = {
+    path: 'docs/quick-start.md',
+    content: '# Quick start\n\nInstall it and go.\n',
+  };
+  const stub = { path: 'docs/config.md', content: draftStub('ekolite/config') };
+
+  it('builds one prompt per page carrying a draft block', () => {
+    const prompts = draftPrompts({ pkg: 'ekolite', exports, files: [overview, quickStart, stub] });
+
+    expect(prompts.map((prompt) => ({ specifier: prompt.specifier, path: prompt.path }))).toEqual([
+      { specifier: 'ekolite/config', path: 'docs/config.md' },
+    ]);
+  });
+
+  it('carries the entry point, its exports entry, the stub, and two docs pages as the voice sample', () => {
+    const [prompt] = draftPrompts({
+      pkg: 'ekolite',
+      exports,
+      files: [overview, quickStart, stub],
+    });
+
+    expect(prompt?.prompt).toContain('ekolite/config');
+    expect(prompt?.prompt).toContain('./dist/server/config.js');
+    expect(prompt?.prompt).toContain(stub.content);
+    expect(prompt?.prompt).toContain('EkoLite is a real time backend.');
+    expect(prompt?.prompt).toContain('Install it and go.');
   });
 });
