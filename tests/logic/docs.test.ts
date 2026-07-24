@@ -464,13 +464,16 @@ describe('docs draft', () => {
     const actions = git.trackActions();
     const opens = gh.trackOpens();
 
-    const { number } = await openDraftPr({
+    const result = await openDraftPr({
       specifiers: ['ekolite/config', 'ekolite/testing'],
       git,
       gh,
     });
 
-    expect(number).toBe(42);
+    if ('stopped' in result) {
+      throw new Error(`unexpected stop: ${result.stopped}`);
+    }
+    expect(result.number).toBe(42);
     expect(actions.data.map((action) => action.action)).toEqual([
       'createBranch',
       'commitAll',
@@ -480,5 +483,18 @@ describe('docs draft', () => {
     expect(open?.body).toContain('ekolite/config');
     expect(open?.body).toContain('ekolite/testing');
     expect(open?.body.toLowerCase()).toContain('machine-drafted');
+  });
+
+  it('stops when the draft branch already exists, touching nothing', async () => {
+    const git = GitWrapper.createNull({ existingBranches: ['docs/draft'] });
+    const gh = GhWrapper.createNull();
+    const actions = git.trackActions();
+    const opens = gh.trackOpens();
+
+    const result = await openDraftPr({ specifiers: ['ekolite/config'], git, gh });
+
+    expect(result).toEqual({ stopped: 'branch docs/draft already exists from an earlier draft' });
+    expect(actions.data).toEqual([]);
+    expect(opens.data).toEqual([]);
   });
 });
