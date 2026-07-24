@@ -3,7 +3,14 @@ import { ProcessRunner } from '../../src/infrastructure/process.ts';
 import { ClaudeWrapper } from '../../src/infrastructure/claude.ts';
 import { GhWrapper } from '../../src/infrastructure/gh.ts';
 import { GitWrapper } from '../../src/infrastructure/git.ts';
-import { docsCheck, docsDraft, docsSync, draftPrompts, openDraftPr } from '../../src/logic/docs.ts';
+import {
+  docsCheck,
+  docsDraft,
+  docsSync,
+  draftBranchConflict,
+  draftPrompts,
+  openDraftPr,
+} from '../../src/logic/docs.ts';
 
 const EXPORTS = {
   '.': { import: './dist/server/index.js' },
@@ -496,5 +503,15 @@ describe('docs draft', () => {
     expect(result).toEqual({ stopped: 'branch docs/draft already exists from an earlier draft' });
     expect(actions.data).toEqual([]);
     expect(opens.data).toEqual([]);
+  });
+
+  it('names the branch conflict when it is taken and is silent when it is free', async () => {
+    const free = GitWrapper.createNull();
+    const taken = GitWrapper.createNull({ existingBranches: ['docs/draft'] });
+
+    expect(await draftBranchConflict(free)).toBeUndefined();
+    expect(await draftBranchConflict(taken)).toBe(
+      'branch docs/draft already exists from an earlier draft',
+    );
   });
 });
