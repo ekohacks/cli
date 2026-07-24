@@ -235,19 +235,19 @@ describe('docs sync', () => {
 
     const result = runDocsSync({ exports, files });
 
-    expect(result.edits).toEqual([
-      {
-        path: 'README.md',
-        content: [
-          '<!-- ekohacks:entry-points -->',
-          "import thing from 'ekolite';",
-          "import thing from 'ekolite/react';",
-          "import * as config from 'ekolite/config';",
-          '<!-- /ekohacks:entry-points -->',
-          '',
-        ].join('\n'),
-      },
-    ]);
+    // The block edit is this test's subject; a new entry point also scaffolds a stub page, and
+    // asserting the whole result here would make this test a second, weaker spec for that.
+    expect(result.edits).toContainEqual({
+      path: 'README.md',
+      content: [
+        '<!-- ekohacks:entry-points -->',
+        "import thing from 'ekolite';",
+        "import thing from 'ekolite/react';",
+        "import * as config from 'ekolite/config';",
+        '<!-- /ekohacks:entry-points -->',
+        '',
+      ].join('\n'),
+    });
   });
 
   it('removes an entry point gone from the exports and leaves other packages alone', () => {
