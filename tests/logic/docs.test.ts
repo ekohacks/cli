@@ -211,6 +211,15 @@ describe('docs sync', () => {
     expect(result.edits).toEqual([]);
   });
 
+  it('never edits a file under .vitepress', () => {
+    const exports = { ...EXPORTS, './config': { import: './dist/server/config.js' } };
+    const files = [{ path: 'docs/.vitepress/dist/quick-start.md', content: blockWith('ekolite') }];
+
+    const result = runDocsSync({ exports, files });
+
+    expect(result.edits).toEqual([]);
+  });
+
   it('adds an entry point the exports declare and the block does not list', () => {
     const exports = { ...EXPORTS, './config': { import: './dist/server/config.js' } };
     const files = [{ path: 'README.md', content: blockWith('ekolite', 'ekolite/react') }];
