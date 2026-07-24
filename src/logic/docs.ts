@@ -3,6 +3,8 @@ import { ProcessRunner } from '../infrastructure/process.ts';
 const DOCS_BUILD_COMMAND = 'npm run docs:build';
 const OPEN_MARKER = '<!-- ekohacks:entry-points -->';
 const CLOSE_MARKER = '<!-- /ekohacks:entry-points -->';
+const DRAFT_OPEN = '<!-- ekohacks:draft -->';
+const DRAFT_CLOSE = '<!-- /ekohacks:draft -->';
 
 export interface DocsFile {
   path: string;
@@ -214,14 +216,18 @@ const syncedBlock = (region: string, pkg: string, entries: string[]): string => 
 };
 
 // A page the tool can write without knowing anything it does not know: the import line it can
-// derive, and a TODO everywhere prose belongs. The sidebar is code the sync will not touch, so
-// the line a human has to add is spelled out rather than written.
+// derive, and a TODO everywhere prose belongs. The example and "what works today" live inside a
+// draft block the drafting tool owns, the seam `docs draft` writes into; the heading above and
+// the sidebar TODO below stay outside it, so a draft never touches them. The sidebar is code the
+// sync will not touch, so the line a human has to add is spelled out rather than written.
 const stubFor = (specifier: string): DocsFile => {
   const name = specifier.split('/').at(-1) ?? specifier;
   return {
     path: `docs/${name}.md`,
     content: [
       `# ${specifier}`,
+      '',
+      DRAFT_OPEN,
       '',
       '```ts',
       importLineFor(specifier),
@@ -232,6 +238,8 @@ const stubFor = (specifier: string): DocsFile => {
       '## What works today',
       '',
       '- TODO: what a reader can rely on today, not what is planned.',
+      '',
+      DRAFT_CLOSE,
       '',
       '<!-- TODO: add this page to the sidebar in docs/.vitepress/config.mts:',
       `     { text: '${name}', link: '/${name}' } -->`,
