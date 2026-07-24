@@ -290,6 +290,47 @@ describe('docs sync', () => {
     ]);
   });
 
+  it('writes a stub page for a new entry point, and none for the package itself', () => {
+    const exports = { ...EXPORTS, './config': { import: './dist/server/config.js' } };
+    const files = [{ path: 'README.md', content: blockWith('ekolite', 'ekolite/react') }];
+
+    const result = runDocsSync({ exports, files });
+
+    expect(result.edits).toEqual([
+      {
+        path: 'README.md',
+        content: [
+          '<!-- ekohacks:entry-points -->',
+          "import thing from 'ekolite';",
+          "import thing from 'ekolite/react';",
+          "import * as config from 'ekolite/config';",
+          '<!-- /ekohacks:entry-points -->',
+          '',
+        ].join('\n'),
+      },
+      {
+        path: 'docs/config.md',
+        content: [
+          '# ekolite/config',
+          '',
+          '```ts',
+          "import * as config from 'ekolite/config';",
+          '',
+          '// TODO: an example that runs.',
+          '```',
+          '',
+          '## What works today',
+          '',
+          '- TODO: what a reader can rely on today, not what is planned.',
+          '',
+          '<!-- TODO: add this page to the sidebar in docs/.vitepress/config.mts:',
+          "     { text: 'config', link: '/config' } -->",
+          '',
+        ].join('\n'),
+      },
+    ]);
+  });
+
   it('writes a count above ten as a digit, having no word for it', () => {
     const many = Array.from({ length: 11 }, (_, index) =>
       index === 0 ? 'ekolite' : `ekolite/m${index}`,
