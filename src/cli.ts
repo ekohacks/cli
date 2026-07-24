@@ -9,8 +9,16 @@ import { GhWrapper } from './infrastructure/gh.ts';
 import { GitWrapper } from './infrastructure/git.ts';
 import { NpmWrapper } from './infrastructure/npm.ts';
 import { ProcessRunner } from './infrastructure/process.ts';
+import { ClaudeWrapper } from './infrastructure/claude.ts';
 import { cut } from './logic/cut.ts';
-import { docsCheck, docsSync, type DocsFile } from './logic/docs.ts';
+import {
+  docsCheck,
+  docsDraft,
+  docsSync,
+  draftPrompts,
+  openDraftPr,
+  type DocsFile,
+} from './logic/docs.ts';
 import { preflight } from './logic/preflight.ts';
 import { release } from './logic/release.ts';
 import { ship } from './logic/ship.ts';
@@ -19,6 +27,7 @@ const USAGE = [
   'usage: ekohacks release [preflight|cut|ship] <version> [--yes]',
   '       ekohacks docs check',
   '       ekohacks docs sync [--dry-run]',
+  '       ekohacks docs draft [--yes]',
 ].join('\n');
 
 const FLAGS = ['--yes', '--dry-run'];
@@ -36,7 +45,7 @@ const printChecks = (checks: { name: string; passed: boolean; reason?: string }[
 
 if (command === 'docs') {
   const subject = rest[0];
-  if (rest.length !== 1 || (subject !== 'check' && subject !== 'sync')) {
+  if (rest.length !== 1 || (subject !== 'check' && subject !== 'sync' && subject !== 'draft')) {
     console.error(USAGE);
     process.exit(2);
   }
@@ -73,6 +82,56 @@ if (command === 'docs') {
       }
       console.log(`  ${dryRun ? `would have ${verb}` : verb} ${edit.path}`);
     }
+    process.exit(0);
+  }
+
+  if (subject === 'draft') {
+    if (process.env.ANTHROPIC_API_KEY === undefined || process.env.ANTHROPIC_API_KEY === '') {
+      console.error('stopped: docs draft needs ANTHROPIC_API_KEY');
+      process.exit(1);
+    }
+    const prompts = draftPrompts({ pkg: manifest.name, exports: manifest.exports, files });
+    if (prompts.length === 0) {
+      console.log('  nothing to draft: no page carries a draft block');
+      process.exit(0);
+    }
+    const pages = `${prompts.length} page${prompts.length === 1 ? '' : 's'}`;
+    console.log(`  ${pages} to draft, one model call each:`);
+    for (const { specifier } of prompts) {
+      console.log(`    ${specifier}`);
+    }
+    if (!yes) {
+      const readline = createInterface({ input: process.stdin, output: process.stdout });
+      const answer = await readline.question(`  draft ${pages}? (y/n) `);
+      readline.close();
+      if (answer.trim().toLowerCase() !== 'y') {
+        console.error('stopped: draft not approved');
+        process.exit(1);
+      }
+    }
+    let claude: ClaudeWrapper;
+    try {
+      claude = await ClaudeWrapper.create();
+    } catch (error) {
+      console.error(`stopped: ${(error as Error).message}`);
+      process.exit(1);
+    }
+    const { edits } = await docsDraft({
+      pkg: manifest.name,
+      exports: manifest.exports,
+      files,
+      claude,
+    });
+    for (const edit of edits) {
+      writeFileSync(edit.path, edit.content);
+      console.log(`  drafted ${edit.path}`);
+    }
+    const { number } = await openDraftPr({
+      specifiers: prompts.map((prompt) => prompt.specifier),
+      git: GitWrapper.create(),
+      gh: GhWrapper.create(),
+    });
+    console.log(`  opened pr #${number}`);
     process.exit(0);
   }
 
