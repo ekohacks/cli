@@ -213,6 +213,33 @@ const syncedBlock = (region: string, pkg: string, entries: string[]): string => 
   return kept.join('\n');
 };
 
+// A page the tool can write without knowing anything it does not know: the import line it can
+// derive, and a TODO everywhere prose belongs. The sidebar is code the sync will not touch, so
+// the line a human has to add is spelled out rather than written.
+const stubFor = (specifier: string): DocsFile => {
+  const name = specifier.split('/').at(-1) ?? specifier;
+  return {
+    path: `docs/${name}.md`,
+    content: [
+      `# ${specifier}`,
+      '',
+      '```ts',
+      importLineFor(specifier),
+      '',
+      '// TODO: an example that runs.',
+      '```',
+      '',
+      '## What works today',
+      '',
+      '- TODO: what a reader can rely on today, not what is planned.',
+      '',
+      '<!-- TODO: add this page to the sidebar in docs/.vitepress/config.mts:',
+      `     { text: '${name}', link: '/${name}' } -->`,
+      '',
+    ].join('\n'),
+  };
+};
+
 const wordForCount = (count: number): string | undefined =>
   Object.entries(COUNT_WORDS).find(([, value]) => value === count)?.[0];
 
@@ -249,12 +276,29 @@ export const docsSync = ({
   files: DocsFile[];
 }): DocsSyncResult => {
   const entries = entryPointsFrom(pkg, exports);
+  const scanned = files.filter((file) => !file.path.split('/').includes('.vitepress'));
   const edits: DocsFile[] = [];
-  for (const file of files.filter((file) => !file.path.split('/').includes('.vitepress'))) {
+  for (const file of scanned) {
     const synced = mapBlocks(file.content, (region) => syncedBlock(region, pkg, entries));
     const content = syncedCounts(synced, entries.length);
     if (content !== file.content) {
       edits.push({ path: file.path, content });
+    }
+  }
+
+  // What the docs declared before this run is the baseline a stub is new against. An unclosed
+  // block declares nothing readable and a repo with no block at all has no baseline, so neither
+  // gets scaffolded: both are failures the check already names, and guessing past them would
+  // stamp pages across a repo on the strength of a marker somebody forgot to close.
+  const readable = scanned
+    .map((file) => blockRegions(file.content))
+    .filter((block) => !block.unclosed && block.regions.length > 0);
+  const declared = new Set(
+    readable.flatMap((block) => block.regions.flatMap((region) => specifiersIn(region, pkg))),
+  );
+  if (readable.length > 0) {
+    for (const entry of entries.filter((entry) => entry !== pkg && !declared.has(entry))) {
+      edits.push(stubFor(entry));
     }
   }
   return { edits };
