@@ -2,6 +2,34 @@
 
 All notable changes to `ekohacks` are recorded here.
 
+## 0.5.0
+
+### Added
+
+- **`ekohacks docs draft`.** The third phase of the docs work: the model fills the scaffold
+  `docs sync` stamps. For each page carrying a draft block, it writes one prompt — the entry
+  point, its exports map entry, the stub as it stands, and two existing docs pages verbatim as
+  the voice sample — sends it to `claude-opus-4-8`, and lands the prose inside the block,
+  touching nothing a person wrote. It then opens a PR that names each drafted entry point and
+  states plainly that the prose is machine-drafted and unreviewed, and never merges — where
+  `release cut` pauses for a human, this stops for good. The gate asks before it spends, prints
+  the pages and the call count, checks the PR branch before the first call so a repeat run stops
+  for free, and stops with a named reason when `ANTHROPIC_API_KEY` is unset. `--yes` skips the
+  prompt.
+- **The Claude API is an optional peer dependency.** `@anthropic-ai/sdk` is reached through a
+  dynamic import only `docs draft` triggers, so `release`, `docs check` and `docs sync` never
+  pull an API client onto a global install. Run `docs draft` without it and the command stops
+  with a named reason. Installing globally still needs the SDK installed alongside; `npx` needs
+  it named on the command.
+
+### Changed
+
+- **`docs sync` stubs now carry a draft block.** A scaffolded page wraps its placeholder example
+  and "what works today" region in `<!-- ekohacks:draft -->` … `<!-- /ekohacks:draft -->`, the
+  seam `docs draft` writes into. A stub scaffolded by 0.4.0 has no block; re-running `docs sync`
+  is not needed for pages a person has taken over, but a stub still bearing the block is what
+  `docs draft` fills.
+
 ## 0.4.0
 
 ### Added
