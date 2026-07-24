@@ -439,11 +439,14 @@ export const docsDraft = async ({
   return { edits };
 };
 
+export type OpenDraftPrResult = { number: number } | { stopped: string };
+
 // Opens the PR for drafts the shell has already written to disk: branch, commit, push, open —
 // the same moves as cut, but it stops at the open. Where release cut pauses for a human to
 // merge, this never merges: machine-drafted prose is a suggestion, and the PR body says so, so
 // the worst a bad draft can do is wait in review. `git switch -c` keeps the working-tree edits,
-// so the branch is created after the write.
+// so the branch is created after the write. Like cut, it refuses a branch an earlier draft left
+// behind rather than letting git throw on the collision.
 export const openDraftPr = async ({
   specifiers,
   git,
@@ -452,7 +455,10 @@ export const openDraftPr = async ({
   specifiers: string[];
   git: GitWrapper;
   gh: GhWrapper;
-}): Promise<{ number: number }> => {
+}): Promise<OpenDraftPrResult> => {
+  if (await git.branchExists(DRAFT_BRANCH)) {
+    return { stopped: `branch ${DRAFT_BRANCH} already exists from an earlier draft` };
+  }
   await git.createBranch(DRAFT_BRANCH);
   await git.commitAll('docs: draft the scaffolded entry point pages');
   await git.push();

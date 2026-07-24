@@ -126,12 +126,16 @@ if (command === 'docs') {
       writeFileSync(edit.path, edit.content);
       console.log(`  drafted ${edit.path}`);
     }
-    const { number } = await openDraftPr({
+    const pr = await openDraftPr({
       specifiers: prompts.map((prompt) => prompt.specifier),
       git: GitWrapper.create(),
       gh: GhWrapper.create(),
     });
-    console.log(`  opened pr #${number}`);
+    if ('stopped' in pr) {
+      console.error(`stopped: ${pr.stopped}`);
+      process.exit(1);
+    }
+    console.log(`  opened pr #${pr.number}`);
     process.exit(0);
   }
 
