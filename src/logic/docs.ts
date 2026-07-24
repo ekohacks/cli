@@ -1,5 +1,9 @@
 import { ClaudeWrapper } from '../infrastructure/claude.ts';
+import { GhWrapper } from '../infrastructure/gh.ts';
+import { GitWrapper } from '../infrastructure/git.ts';
 import { ProcessRunner } from '../infrastructure/process.ts';
+
+const DRAFT_BRANCH = 'docs/draft';
 
 const DOCS_BUILD_COMMAND = 'npm run docs:build';
 const OPEN_MARKER = '<!-- ekohacks:entry-points -->';
@@ -433,4 +437,31 @@ export const docsDraft = async ({
     edits.push({ path, content: applyDraft(page.content, prose) });
   }
   return { edits };
+};
+
+// Opens the PR for drafts the shell has already written to disk: branch, commit, push, open —
+// the same moves as cut, but it stops at the open. Where release cut pauses for a human to
+// merge, this never merges: machine-drafted prose is a suggestion, and the PR body says so, so
+// the worst a bad draft can do is wait in review. `git switch -c` keeps the working-tree edits,
+// so the branch is created after the write.
+export const openDraftPr = async ({
+  specifiers,
+  git,
+  gh,
+}: {
+  specifiers: string[];
+  git: GitWrapper;
+  gh: GhWrapper;
+}): Promise<{ number: number }> => {
+  await git.createBranch(DRAFT_BRANCH);
+  await git.commitAll('docs: draft the scaffolded entry point pages');
+  await git.push();
+  const body = [
+    'Machine-drafted documentation for entry points that carried only a scaffold. The prose is',
+    'unreviewed — read every line before merging, and treat it as a starting point, not an answer.',
+    '',
+    'Drafted:',
+    ...specifiers.map((specifier) => `- \`${specifier}\``),
+  ].join('\n');
+  return gh.openPr({ title: 'docs: draft the scaffolded entry point pages', body });
 };
