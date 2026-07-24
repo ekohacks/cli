@@ -50,11 +50,14 @@ f. **The count follows the exports.** Every "N entry points" claim is rewritten 
 count in the form it was written: a digit stays a digit, `Four` becomes `Five`, `four` becomes
 `five`. Above ten there is no word form, so the claim is rewritten as a digit.
 
-g. **A new entry point gets a stub.** For each entry point with no page, sync writes
-`docs/<name>.md`: a heading, the import line, a fenced example marked as a placeholder, a
-"What works today" bullet, and a line naming the exact `config.mts` sidebar entry a human must
-add. An existing file is never overwritten. The bare package name has no stub — the front page
-documents it.
+g. **A new entry point gets a stub.** Sync writes `docs/<name>.md` — a heading, the import
+line, a fenced example marked as a placeholder, a "What works today" bullet, and a line naming
+the exact `config.mts` sidebar entry a human must add. The stub goes to entry points the block
+did not already list, not to every entry point without a page of its own: an entry point the
+docs already declare is documented somewhere, and scaffolding a page for it would be the tool
+inventing work. Where no file carries a readable block there is no such baseline, so nothing is
+scaffolded — that repo's problem is the one the check already names. An existing file is never
+overwritten, and the bare package name has no stub; the front page documents it.
 
 h. **The command writes and reports.** `ekohacks docs sync` prints one line per file written,
 prints that the docs are already in step when there is nothing to do, and exits 0 either way.
