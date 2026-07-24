@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ProcessRunner } from '../../src/infrastructure/process.ts';
-import { docsCheck, docsSync, draftPrompts } from '../../src/logic/docs.ts';
+import { ClaudeWrapper } from '../../src/infrastructure/claude.ts';
+import { docsCheck, docsDraft, docsSync, draftPrompts } from '../../src/logic/docs.ts';
 
 const EXPORTS = {
   '.': { import: './dist/server/index.js' },
@@ -411,5 +412,47 @@ describe('docs draft', () => {
     expect(prompt?.prompt).toContain(stub.content);
     expect(prompt?.prompt).toContain('EkoLite is a real time backend.');
     expect(prompt?.prompt).toContain('Install it and go.');
+  });
+
+  it('lands the drafted prose inside the block and leaves the rest of the page', async () => {
+    const claude = ClaudeWrapper.createNull({ responses: ['## Example\n\nrun it.'] });
+
+    const result = await docsDraft({
+      pkg: 'ekolite',
+      exports,
+      files: [overview, quickStart, stub],
+      claude,
+    });
+
+    expect(result.edits).toEqual([
+      {
+        path: 'docs/config.md',
+        content: [
+          '# ekolite/config',
+          '',
+          '<!-- ekohacks:draft -->',
+          '',
+          '## Example',
+          '',
+          'run it.',
+          '',
+          '<!-- /ekohacks:draft -->',
+          '',
+        ].join('\n'),
+      },
+    ]);
+  });
+
+  it('never drafts a page that carries no draft block', async () => {
+    const claude = ClaudeWrapper.createNull({ responses: ['ignored'] });
+
+    const result = await docsDraft({
+      pkg: 'ekolite',
+      exports,
+      files: [overview, quickStart],
+      claude,
+    });
+
+    expect(result.edits).toEqual([]);
   });
 });
