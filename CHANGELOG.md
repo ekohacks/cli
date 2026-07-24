@@ -2,6 +2,20 @@
 
 All notable changes to `ekohacks` are recorded here.
 
+## 0.4.0
+
+### Added
+
+- **`ekohacks docs sync`.** The mechanical half of the drift `docs check` names, done by the
+  tool instead of by hand: the `<!-- ekohacks:entry-points -->` block gains an entry point the
+  exports map declares and loses one it no longer does, and every "N entry points" claim
+  follows the real count in the form it was written — `Five` becomes `Six`, a digit stays a
+  digit. An entry point the block just gained is scaffolded as `docs/<name>.md`, carrying the
+  import line, a TODO everywhere prose belongs, and the exact sidebar line to add to
+  `config.mts` by hand. `--dry-run` prints what it would write and writes nothing. Build
+  output, unclosed blocks and pages that already exist are left alone; running it twice
+  changes nothing the second time.
+
 ## 0.3.0
 
 ### Added
