@@ -331,6 +331,18 @@ describe('docs sync', () => {
     ]);
   });
 
+  it('never overwrites a page that already exists', () => {
+    const exports = { ...EXPORTS, './config': { import: './dist/server/config.js' } };
+    const files = [
+      { path: 'README.md', content: blockWith('ekolite', 'ekolite/react') },
+      { path: 'docs/config.md', content: '# Configuring ekolite\n\nSomebody wrote this.\n' },
+    ];
+
+    const result = runDocsSync({ exports, files });
+
+    expect(result.edits.map((edit) => edit.path)).toEqual(['README.md']);
+  });
+
   it('writes a count above ten as a digit, having no word for it', () => {
     const many = Array.from({ length: 11 }, (_, index) =>
       index === 0 ? 'ekolite' : `ekolite/m${index}`,
