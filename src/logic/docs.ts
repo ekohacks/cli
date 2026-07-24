@@ -1,3 +1,4 @@
+import { ClaudeWrapper } from '../infrastructure/claude.ts';
 import { ProcessRunner } from '../infrastructure/process.ts';
 
 const DOCS_BUILD_COMMAND = 'npm run docs:build';
@@ -387,4 +388,49 @@ export const draftPrompts = ({
     prompts.push({ specifier, path, prompt });
   }
   return prompts;
+};
+
+// The drafted prose replaces the contents of the draft block and nothing else — the heading
+// above it and the sidebar TODO below it are outside the markers, so they survive. A page with
+// no block is returned unchanged, which is how docsDraft leaves a human's prose alone.
+const applyDraft = (content: string, prose: string): string => {
+  const open = content.indexOf(DRAFT_OPEN);
+  if (open === -1) {
+    return content;
+  }
+  const afterOpen = content.slice(open + DRAFT_OPEN.length);
+  const close = afterOpen.indexOf(DRAFT_CLOSE);
+  if (close === -1) {
+    return content;
+  }
+  const before = content.slice(0, open);
+  const after = afterOpen.slice(close + DRAFT_CLOSE.length);
+  return `${before}${DRAFT_OPEN}\n\n${prose.trim()}\n\n${DRAFT_CLOSE}${after}`;
+};
+
+// The drafting policy: one model call per undrafted page, the returned prose landed in that
+// page's block. Same shape as docsSync — the files whose content should change, each a whole
+// new body — so the shell writes a draft exactly as it writes a sync. The model's output is
+// whatever the wrapper answers; the policy only decides where it lands.
+export const docsDraft = async ({
+  pkg,
+  exports,
+  files,
+  claude,
+}: {
+  pkg: string;
+  exports: unknown;
+  files: DocsFile[];
+  claude: ClaudeWrapper;
+}): Promise<DocsSyncResult> => {
+  const edits: DocsFile[] = [];
+  for (const { path, prompt } of draftPrompts({ pkg, exports, files })) {
+    const page = files.find((file) => file.path === path);
+    if (page === undefined) {
+      continue;
+    }
+    const prose = await claude.complete(prompt);
+    edits.push({ path, content: applyDraft(page.content, prose) });
+  }
+  return { edits };
 };
