@@ -22,9 +22,16 @@ Each behaviour is one red/green loop, red committed and reviewed before green is
 a. **A nullable wrapper around the model.** `ClaudeWrapper.create()` calls the Messages API
 through `@anthropic-ai/sdk` — `claude-opus-4-8`, adaptive thinking, one non-streaming call per
 page — and answers the text it produced. `createNull({ responses })` answers configured text,
-records every prompt it was asked, and never opens a socket. This is the package's first
-runtime dependency; `files: ["dist"]` keeps the tarball our code only, but a consumer now
-installs the SDK too.
+records every prompt it was asked, and never opens a socket, importing nothing.
+
+The SDK is an **optional peer dependency**, not a plain one: every other command — `release`,
+`docs check`, `docs sync` — must not pull an API client nobody asked for onto a global install.
+`peerDependenciesMeta` marks it optional so npm leaves it out, a devDependency keeps the tests
+and the typecheck honest, and `create()` reaches it through a dynamic `import` that can fail.
+When it is absent the command stops with a named reason — the same shape as every other stop in
+this CLI — instead of a module-not-found stack trace. The cost is that `create()` is async where
+the other wrappers' is not, and `npx` gets no peer, so the drafted-prose command run through npx
+needs the SDK named alongside it.
 
 b. **The prompt carries the house voice from the repo.** The policy builds one prompt per
 undrafted entry point: what the entry point is, its exports map entry, the stub as it stands,
