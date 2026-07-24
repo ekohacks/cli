@@ -191,19 +191,22 @@ const importLineFor = (specifier: string): string => {
   return `import * as ${local} from '${specifier}';`;
 };
 
-const withMissingEntries = (region: string, pkg: string, entries: string[]): string => {
-  const documented = new Set(specifiersIn(region, pkg));
+// Both edits to a block are line surgery on the specifiers it already lists: a line naming a
+// specifier the exports no longer declare goes, and a specifier no line names arrives after the
+// last one that survived. Lines naming another package are not the block's business — the check
+// ignores them, and so does this.
+const syncedBlock = (region: string, pkg: string, entries: string[]): string => {
+  const kept = region
+    .split('\n')
+    .filter((line) => specifiersIn(line, pkg).every((specifier) => entries.includes(specifier)));
+  const documented = new Set(specifiersIn(kept.join('\n'), pkg));
   const missing = entries.filter((entry) => !documented.has(entry));
-  if (missing.length === 0) {
-    return region;
-  }
-  const lines = region.split('\n');
-  const lastImport = lines.reduce(
+  const lastImport = kept.reduce(
     (found, line, index) => (specifiersIn(line, pkg).length > 0 ? index : found),
     -1,
   );
-  lines.splice(lastImport + 1, 0, ...missing.map(importLineFor));
-  return lines.join('\n');
+  kept.splice(lastImport + 1, 0, ...missing.map(importLineFor));
+  return kept.join('\n');
 };
 
 // The mechanical half of the drift the check names: the same inputs, and instead of a report
@@ -222,7 +225,7 @@ export const docsSync = ({
   const entries = entryPointsFrom(pkg, exports);
   const edits: DocsFile[] = [];
   for (const file of files.filter((file) => !file.path.split('/').includes('.vitepress'))) {
-    const content = mapBlocks(file.content, (region) => withMissingEntries(region, pkg, entries));
+    const content = mapBlocks(file.content, (region) => syncedBlock(region, pkg, entries));
     if (content !== file.content) {
       edits.push({ path: file.path, content });
     }
