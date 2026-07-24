@@ -220,7 +220,7 @@ export const docsSync = ({
 }): DocsSyncResult => {
   const entries = entryPointsFrom(pkg, exports);
   const edits: DocsFile[] = [];
-  for (const file of files) {
+  for (const file of files.filter((file) => !file.path.split('/').includes('.vitepress'))) {
     const content = mapBlocks(file.content, (region) => withMissingEntries(region, pkg, entries));
     if (content !== file.content) {
       edits.push({ path: file.path, content });
