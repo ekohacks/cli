@@ -1,6 +1,6 @@
 {
   "name": "ekohacks",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "The EkoHacks CLI: our everyday operations, automated one small command at a time.",
   "repository": {
     "type": "git",
