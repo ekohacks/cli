@@ -27,10 +27,13 @@ should change, each as a whole new body. A file it would leave alone is not in t
 the second run of an in-step repo returns nothing. The thin shell does the writing; the policy
 stays pure and is pinned without touching a disk.
 
-b. **The block gains what the exports added.** A missing specifier is inserted into the block
-as an import line copying the shape of the last import line already there — named, default or
-bare — with the new specifier substituted, in the order the exports map declares. A block with
-no line to copy gets `import '<specifier>';`.
+b. **The block gains what the exports added.** A missing specifier is inserted after the last
+import line already in the block, in the order the exports map declares, as a namespace import:
+`import * as config from 'ekolite/config';`. Copying the shape of the neighbouring lines was
+the obvious answer and it is the wrong one — a named import needs a binding the exports map
+does not name, so the tool would be inventing an API into the docs. A namespace import needs
+only the specifier, which the tool does know. It is a scaffold either way, and a person writing
+the example replaces it with the real call.
 
 c. **The block loses what the exports dropped.** An import line whose specifier is no longer
 exported is removed, and nothing else inside the block moves.
