@@ -15,6 +15,7 @@ import {
   docsCheck,
   docsDraft,
   docsSync,
+  draftBranchConflict,
   draftPrompts,
   openDraftPr,
   type DocsFile,
@@ -95,6 +96,14 @@ if (command === 'docs') {
       console.log('  nothing to draft: no page carries a draft block');
       process.exit(0);
     }
+    // The PR branch is checked before the model runs, not after: a repeat run stops here for
+    // free rather than spending on drafts it could never open. The same wrapper opens the PR.
+    const git = GitWrapper.create();
+    const conflict = await draftBranchConflict(git);
+    if (conflict !== undefined) {
+      console.error(`stopped: ${conflict}`);
+      process.exit(1);
+    }
     const pages = `${prompts.length} page${prompts.length === 1 ? '' : 's'}`;
     console.log(`  ${pages} to draft, one model call each:`);
     for (const { specifier } of prompts) {
@@ -128,7 +137,7 @@ if (command === 'docs') {
     }
     const pr = await openDraftPr({
       specifiers: prompts.map((prompt) => prompt.specifier),
-      git: GitWrapper.create(),
+      git,
       gh: GhWrapper.create(),
     });
     if ('stopped' in pr) {

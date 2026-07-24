@@ -441,6 +441,14 @@ export const docsDraft = async ({
 
 export type OpenDraftPrResult = { number: number } | { stopped: string };
 
+// The one place the draft branch and its collision message live. The shell asks this before it
+// spends on the model, so a repeat run stops for free instead of drafting into a branch it can
+// never open; openDraftPr asks it again at the last moment as the real safety.
+export const draftBranchConflict = async (git: GitWrapper): Promise<string | undefined> =>
+  (await git.branchExists(DRAFT_BRANCH))
+    ? `branch ${DRAFT_BRANCH} already exists from an earlier draft`
+    : undefined;
+
 // Opens the PR for drafts the shell has already written to disk: branch, commit, push, open —
 // the same moves as cut, but it stops at the open. Where release cut pauses for a human to
 // merge, this never merges: machine-drafted prose is a suggestion, and the PR body says so, so
@@ -456,8 +464,9 @@ export const openDraftPr = async ({
   git: GitWrapper;
   gh: GhWrapper;
 }): Promise<OpenDraftPrResult> => {
-  if (await git.branchExists(DRAFT_BRANCH)) {
-    return { stopped: `branch ${DRAFT_BRANCH} already exists from an earlier draft` };
+  const conflict = await draftBranchConflict(git);
+  if (conflict !== undefined) {
+    return { stopped: conflict };
   }
   await git.createBranch(DRAFT_BRANCH);
   await git.commitAll('docs: draft the scaffolded entry point pages');
