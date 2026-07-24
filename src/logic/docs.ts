@@ -70,12 +70,16 @@ const COUNT_WORDS: Record<string, number> = {
   ten: 10,
 };
 
+// One definition of what a claim looks like, read by the check and rewritten by the sync — two
+// copies of it would be their own drift. Built fresh at each use: a shared global regex carries
+// its lastIndex from call to call.
+const COUNT_CLAIM_SOURCE = String.raw`\b(\d+|zero|one|two|three|four|five|six|seven|eight|nine|ten)[\s-]+entry[\s-]+points?\b`;
+const countClaims = () => new RegExp(COUNT_CLAIM_SOURCE, 'gi');
+
 const countClaimsIn = (content: string): number[] =>
-  [
-    ...content.matchAll(
-      /\b(\d+|zero|one|two|three|four|five|six|seven|eight|nine|ten)[\s-]+entry[\s-]+points?\b/gi,
-    ),
-  ].map(([, claim = '']) => COUNT_WORDS[claim.toLowerCase()] ?? Number(claim));
+  [...content.matchAll(countClaims())].map(
+    ([, claim = '']) => COUNT_WORDS[claim.toLowerCase()] ?? Number(claim),
+  );
 
 // The drift detector as a policy: the exports map is the truth, the docs carry their
 // claims in a block the tool owns, and every mismatch is a named check with the reason
@@ -209,6 +213,28 @@ const syncedBlock = (region: string, pkg: string, entries: string[]): string => 
   return kept.join('\n');
 };
 
+const wordForCount = (count: number): string | undefined =>
+  Object.entries(COUNT_WORDS).find(([, value]) => value === count)?.[0];
+
+// A claim is rewritten in the form it was written: a digit stays a digit, a word stays a word
+// carrying the case it had. Past ten the table has no word, so the claim becomes a digit — the
+// same number the check reads either way.
+const countAs = (written: string, count: number): string => {
+  const word = wordForCount(count);
+  if (/^\d+$/.test(written) || word === undefined) {
+    return String(count);
+  }
+  return written.charAt(0) === written.charAt(0).toUpperCase()
+    ? word.charAt(0).toUpperCase() + word.slice(1)
+    : word;
+};
+
+const syncedCounts = (content: string, count: number): string =>
+  content.replace(countClaims(), (claim: string) => {
+    const written = claim.split(/[\s-]/)[0] ?? '';
+    return countAs(written, count) + claim.slice(written.length);
+  });
+
 // The mechanical half of the drift the check names: the same inputs, and instead of a report
 // the files whose content should change, each as a whole new body. The shell does the writing,
 // so the policy stays pure — and a file this would leave alone never reaches the caller, which
@@ -225,7 +251,8 @@ export const docsSync = ({
   const entries = entryPointsFrom(pkg, exports);
   const edits: DocsFile[] = [];
   for (const file of files.filter((file) => !file.path.split('/').includes('.vitepress'))) {
-    const content = mapBlocks(file.content, (region) => syncedBlock(region, pkg, entries));
+    const synced = mapBlocks(file.content, (region) => syncedBlock(region, pkg, entries));
+    const content = syncedCounts(synced, entries.length);
     if (content !== file.content) {
       edits.push({ path: file.path, content });
     }
