@@ -220,6 +220,15 @@ describe('docs sync', () => {
     expect(result.edits).toEqual([]);
   });
 
+  it('leaves an unclosed block alone instead of guessing where it ends', () => {
+    const exports = { ...EXPORTS, './config': { import: './dist/server/config.js' } };
+    const content = "<!-- ekohacks:entry-points -->\nimport thing from 'ekolite';\n";
+
+    const result = runDocsSync({ exports, files: [{ path: 'README.md', content }] });
+
+    expect(result.edits).toEqual([]);
+  });
+
   it('adds an entry point the exports declare and the block does not list', () => {
     const exports = { ...EXPORTS, './config': { import: './dist/server/config.js' } };
     const files = [{ path: 'README.md', content: blockWith('ekolite', 'ekolite/react') }];
