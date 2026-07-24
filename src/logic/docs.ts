@@ -296,9 +296,13 @@ export const docsSync = ({
   const declared = new Set(
     readable.flatMap((block) => block.regions.flatMap((region) => specifiersIn(region, pkg))),
   );
+  const existing = new Set(files.map((file) => file.path));
   if (readable.length > 0) {
     for (const entry of entries.filter((entry) => entry !== pkg && !declared.has(entry))) {
-      edits.push(stubFor(entry));
+      const stub = stubFor(entry);
+      if (!existing.has(stub.path)) {
+        edits.push(stub);
+      }
     }
   }
   return { edits };
