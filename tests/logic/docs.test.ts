@@ -249,4 +249,19 @@ describe('docs sync', () => {
       },
     ]);
   });
+
+  it('removes an entry point gone from the exports and leaves other packages alone', () => {
+    const files = [
+      {
+        path: 'README.md',
+        content: blockWith('react', 'ekolite', 'ekolite/legacy', 'ekolite/react'),
+      },
+    ];
+
+    const result = runDocsSync({ files });
+
+    expect(result.edits).toEqual([
+      { path: 'README.md', content: blockWith('react', 'ekolite', 'ekolite/react') },
+    ]);
+  });
 });
