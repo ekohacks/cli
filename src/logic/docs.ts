@@ -19,6 +19,12 @@ export interface DocsSyncResult {
   edits: DocsFile[];
 }
 
+export interface DraftPrompt {
+  specifier: string;
+  path: string;
+  prompt: string;
+}
+
 // The public entry points an exports map declares, as the specifiers a consumer imports:
 // "." is the bare package name, "./react" is pkg/react. A package with no exports map —
 // or a conditions-only one, with no "." keys — has a single entry point: itself.
@@ -220,8 +226,12 @@ const syncedBlock = (region: string, pkg: string, entries: string[]): string => 
 // draft block the drafting tool owns, the seam `docs draft` writes into; the heading above and
 // the sidebar TODO below stay outside it, so a draft never touches them. The sidebar is code the
 // sync will not touch, so the line a human has to add is spelled out rather than written.
+// The page a specifier documents, derived from the specifier alone: ekolite/config → config.
+// stubFor writes it and draftPrompts reads it back, so it lives in one place rather than two.
+const pageNameFor = (specifier: string): string => specifier.split('/').at(-1) ?? specifier;
+
 const stubFor = (specifier: string): DocsFile => {
-  const name = specifier.split('/').at(-1) ?? specifier;
+  const name = pageNameFor(specifier);
   return {
     path: `docs/${name}.md`,
     content: [
@@ -314,4 +324,67 @@ export const docsSync = ({
     }
   }
   return { edits };
+};
+
+// The exports map value a specifier resolves to, so the prompt can show the entry point's real
+// shape. The key is the mirror of entryPointsFrom: pkg is ".", pkg/config is "./config".
+const exportsEntryFor = (pkg: string, exports: unknown, specifier: string): unknown => {
+  if (typeof exports !== 'object' || exports === null) {
+    return undefined;
+  }
+  const key = specifier === pkg ? '.' : `./${specifier.slice(pkg.length + 1)}`;
+  return (exports as Record<string, unknown>)[key];
+};
+
+// One prompt per undrafted page — a page carrying a draft block whose entry point the exports
+// map still declares. The repo is the style guide: the prompt quotes two existing pages verbatim
+// rather than describing a voice, so the draft tracks the docs instead of a copy of them. Pure —
+// the caller runs the model and lands the result.
+export const draftPrompts = ({
+  pkg,
+  exports,
+  files,
+}: {
+  pkg: string;
+  exports: unknown;
+  files: DocsFile[];
+}): DraftPrompt[] => {
+  const scanned = files.filter((file) => !file.path.split('/').includes('.vitepress'));
+  const voice = scanned
+    .filter((file) => !file.content.includes(DRAFT_OPEN))
+    .sort((a, b) => a.path.localeCompare(b.path))
+    .slice(0, 2)
+    .map((page) => `--- ${page.path} ---\n${page.content}`)
+    .join('\n\n');
+
+  const prompts: DraftPrompt[] = [];
+  for (const specifier of entryPointsFrom(pkg, exports)) {
+    if (specifier === pkg) {
+      continue;
+    }
+    const path = `docs/${pageNameFor(specifier)}.md`;
+    const page = scanned.find((file) => file.path === path);
+    if (page === undefined || !page.content.includes(DRAFT_OPEN)) {
+      continue;
+    }
+    const prompt = [
+      `You are writing the documentation page for the \`${specifier}\` entry point of \`${pkg}\`.`,
+      '',
+      "Its entry in the package's exports map:",
+      '',
+      JSON.stringify(exportsEntryFor(pkg, exports, specifier), null, 2),
+      '',
+      'The page as it stands, a scaffold with a draft block to fill:',
+      '',
+      page.content,
+      '',
+      'Write only what belongs inside the draft block: one import-and-use example that runs, and a',
+      'short "what works today" list. Do not invent API the exports map does not name. Match the',
+      'voice, structure and formatting of these existing pages exactly:',
+      '',
+      voice,
+    ].join('\n');
+    prompts.push({ specifier, path, prompt });
+  }
+  return prompts;
 };
