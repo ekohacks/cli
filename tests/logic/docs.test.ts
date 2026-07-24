@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ProcessRunner } from '../../src/infrastructure/process.ts';
-import { docsCheck } from '../../src/logic/docs.ts';
+import { docsCheck, docsSync } from '../../src/logic/docs.ts';
 
 const EXPORTS = {
   '.': { import: './dist/server/index.js' },
@@ -195,5 +195,168 @@ describe('docs check', () => {
       passed: false,
       reason: 'npm run docs:build failed',
     });
+  });
+});
+
+const runDocsSync = ({
+  pkg = 'ekolite',
+  exports = EXPORTS as unknown,
+  files = [{ path: 'README.md', content: README }],
+} = {}) => docsSync({ pkg, exports, files });
+
+describe('docs sync', () => {
+  it('returns no edits when the docs already match the exports', () => {
+    const result = runDocsSync();
+
+    expect(result.edits).toEqual([]);
+  });
+
+  it('never edits a file under .vitepress', () => {
+    const exports = { ...EXPORTS, './config': { import: './dist/server/config.js' } };
+    const files = [{ path: 'docs/.vitepress/dist/quick-start.md', content: blockWith('ekolite') }];
+
+    const result = runDocsSync({ exports, files });
+
+    expect(result.edits).toEqual([]);
+  });
+
+  it('leaves an unclosed block alone instead of guessing where it ends', () => {
+    const exports = { ...EXPORTS, './config': { import: './dist/server/config.js' } };
+    const content = "<!-- ekohacks:entry-points -->\nimport thing from 'ekolite';\n";
+
+    const result = runDocsSync({ exports, files: [{ path: 'README.md', content }] });
+
+    expect(result.edits).toEqual([]);
+  });
+
+  it('adds an entry point the exports declare and the block does not list', () => {
+    const exports = { ...EXPORTS, './config': { import: './dist/server/config.js' } };
+    const files = [{ path: 'README.md', content: blockWith('ekolite', 'ekolite/react') }];
+
+    const result = runDocsSync({ exports, files });
+
+    // The block edit is this test's subject; a new entry point also scaffolds a stub page, and
+    // asserting the whole result here would make this test a second, weaker spec for that.
+    expect(result.edits).toContainEqual({
+      path: 'README.md',
+      content: [
+        '<!-- ekohacks:entry-points -->',
+        "import thing from 'ekolite';",
+        "import thing from 'ekolite/react';",
+        "import * as config from 'ekolite/config';",
+        '<!-- /ekohacks:entry-points -->',
+        '',
+      ].join('\n'),
+    });
+  });
+
+  it('removes an entry point gone from the exports and leaves other packages alone', () => {
+    const files = [
+      {
+        path: 'README.md',
+        content: blockWith('react', 'ekolite', 'ekolite/legacy', 'ekolite/react'),
+      },
+    ];
+
+    const result = runDocsSync({ files });
+
+    expect(result.edits).toEqual([
+      { path: 'README.md', content: blockWith('react', 'ekolite', 'ekolite/react') },
+    ]);
+  });
+
+  it('rewrites a word count as a word, keeping the case it was written in', () => {
+    const inStep = blockWith('ekolite', 'ekolite/react');
+    const files = [{ path: 'docs/quick-start.md', content: `Four entry points:\n\n${inStep}` }];
+
+    const result = runDocsSync({ files });
+
+    expect(result.edits).toEqual([
+      { path: 'docs/quick-start.md', content: `Two entry points:\n\n${inStep}` },
+    ]);
+  });
+
+  it('rewrites a digit count as a digit, and every claim in the file', () => {
+    const inStep = blockWith('ekolite', 'ekolite/react');
+    const content = `5 entry points:\n\nAll five entry points ship today.\n\n${inStep}`;
+
+    const result = runDocsSync({ files: [{ path: 'docs/quick-start.md', content }] });
+
+    expect(result.edits).toEqual([
+      {
+        path: 'docs/quick-start.md',
+        content: `2 entry points:\n\nAll two entry points ship today.\n\n${inStep}`,
+      },
+    ]);
+  });
+
+  it('writes a stub page for a new entry point, and none for the package itself', () => {
+    const exports = { ...EXPORTS, './config': { import: './dist/server/config.js' } };
+    const files = [{ path: 'README.md', content: blockWith('ekolite', 'ekolite/react') }];
+
+    const result = runDocsSync({ exports, files });
+
+    expect(result.edits).toEqual([
+      {
+        path: 'README.md',
+        content: [
+          '<!-- ekohacks:entry-points -->',
+          "import thing from 'ekolite';",
+          "import thing from 'ekolite/react';",
+          "import * as config from 'ekolite/config';",
+          '<!-- /ekohacks:entry-points -->',
+          '',
+        ].join('\n'),
+      },
+      {
+        path: 'docs/config.md',
+        content: [
+          '# ekolite/config',
+          '',
+          '```ts',
+          "import * as config from 'ekolite/config';",
+          '',
+          '// TODO: an example that runs.',
+          '```',
+          '',
+          '## What works today',
+          '',
+          '- TODO: what a reader can rely on today, not what is planned.',
+          '',
+          '<!-- TODO: add this page to the sidebar in docs/.vitepress/config.mts:',
+          "     { text: 'config', link: '/config' } -->",
+          '',
+        ].join('\n'),
+      },
+    ]);
+  });
+
+  it('never overwrites a page that already exists', () => {
+    const exports = { ...EXPORTS, './config': { import: './dist/server/config.js' } };
+    const files = [
+      { path: 'README.md', content: blockWith('ekolite', 'ekolite/react') },
+      { path: 'docs/config.md', content: '# Configuring ekolite\n\nSomebody wrote this.\n' },
+    ];
+
+    const result = runDocsSync({ exports, files });
+
+    expect(result.edits.map((edit) => edit.path)).toEqual(['README.md']);
+  });
+
+  it('writes a count above ten as a digit, having no word for it', () => {
+    const many = Array.from({ length: 11 }, (_, index) =>
+      index === 0 ? 'ekolite' : `ekolite/m${index}`,
+    );
+    const exports = Object.fromEntries(
+      many.map((_, index) => [index === 0 ? '.' : `./m${index}`, './dist/m.js']),
+    );
+    const inStep = blockWith(...many);
+    const files = [{ path: 'docs/quick-start.md', content: `Four entry points:\n\n${inStep}` }];
+
+    const result = runDocsSync({ exports, files });
+
+    expect(result.edits).toEqual([
+      { path: 'docs/quick-start.md', content: `11 entry points:\n\n${inStep}` },
+    ]);
   });
 });

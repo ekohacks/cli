@@ -2,14 +2,15 @@
 // The thin shell: read the repo's files, wire the real wrappers, print one line per
 // check and per step, exit 0 only when the command ran to its end. Everything worth
 // testing lives below.
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { GhWrapper } from './infrastructure/gh.ts';
 import { GitWrapper } from './infrastructure/git.ts';
 import { NpmWrapper } from './infrastructure/npm.ts';
 import { ProcessRunner } from './infrastructure/process.ts';
 import { cut } from './logic/cut.ts';
-import { docsCheck, type DocsFile } from './logic/docs.ts';
+import { docsCheck, docsSync, type DocsFile } from './logic/docs.ts';
 import { preflight } from './logic/preflight.ts';
 import { release } from './logic/release.ts';
 import { ship } from './logic/ship.ts';
@@ -17,11 +18,15 @@ import { ship } from './logic/ship.ts';
 const USAGE = [
   'usage: ekohacks release [preflight|cut|ship] <version> [--yes]',
   '       ekohacks docs check',
+  '       ekohacks docs sync [--dry-run]',
 ].join('\n');
+
+const FLAGS = ['--yes', '--dry-run'];
 
 const argv = process.argv.slice(2);
 const yes = argv.includes('--yes');
-const [command, ...rest] = argv.filter((arg) => arg !== '--yes');
+const dryRun = argv.includes('--dry-run');
+const [command, ...rest] = argv.filter((arg) => !FLAGS.includes(arg));
 
 const printChecks = (checks: { name: string; passed: boolean; reason?: string }[]) => {
   for (const check of checks) {
@@ -30,7 +35,8 @@ const printChecks = (checks: { name: string; passed: boolean; reason?: string }[
 };
 
 if (command === 'docs') {
-  if (rest.length !== 1 || rest[0] !== 'check') {
+  const subject = rest[0];
+  if (rest.length !== 1 || (subject !== 'check' && subject !== 'sync')) {
     console.error(USAGE);
     process.exit(2);
   }
@@ -53,6 +59,23 @@ if (command === 'docs') {
       }
     }
   }
+  if (subject === 'sync') {
+    const { edits } = docsSync({ pkg: manifest.name, exports: manifest.exports, files });
+    if (edits.length === 0) {
+      console.log('  the docs are already in step');
+      process.exit(0);
+    }
+    for (const edit of edits) {
+      const verb = existsSync(edit.path) ? 'updated' : 'created';
+      if (!dryRun) {
+        mkdirSync(dirname(edit.path), { recursive: true });
+        writeFileSync(edit.path, edit.content);
+      }
+      console.log(`  ${dryRun ? `would have ${verb}` : verb} ${edit.path}`);
+    }
+    process.exit(0);
+  }
+
   const report = await docsCheck({
     pkg: manifest.name,
     exports: manifest.exports,
