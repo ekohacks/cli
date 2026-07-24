@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ProcessRunner } from '../../src/infrastructure/process.ts';
-import { docsCheck } from '../../src/logic/docs.ts';
+import { docsCheck, docsSync } from '../../src/logic/docs.ts';
 
 const EXPORTS = {
   '.': { import: './dist/server/index.js' },
@@ -195,5 +195,19 @@ describe('docs check', () => {
       passed: false,
       reason: 'npm run docs:build failed',
     });
+  });
+});
+
+const runDocsSync = ({
+  pkg = 'ekolite',
+  exports = EXPORTS as unknown,
+  files = [{ path: 'README.md', content: README }],
+} = {}) => docsSync({ pkg, exports, files });
+
+describe('docs sync', () => {
+  it('returns no edits when the docs already match the exports', () => {
+    const result = runDocsSync();
+
+    expect(result.edits).toEqual([]);
   });
 });
