@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ProcessRunner } from '../../src/infrastructure/process.ts';
 import { ClaudeWrapper } from '../../src/infrastructure/claude.ts';
-import { docsCheck, docsDraft, docsSync, draftPrompts } from '../../src/logic/docs.ts';
+import { GhWrapper } from '../../src/infrastructure/gh.ts';
+import { GitWrapper } from '../../src/infrastructure/git.ts';
+import { docsCheck, docsDraft, docsSync, draftPrompts, openDraftPr } from '../../src/logic/docs.ts';
 
 const EXPORTS = {
   '.': { import: './dist/server/index.js' },
@@ -454,5 +456,29 @@ describe('docs draft', () => {
     });
 
     expect(result.edits).toEqual([]);
+  });
+
+  it('branches, commits, pushes, and opens a PR naming each drafted entry point', async () => {
+    const git = GitWrapper.createNull();
+    const gh = GhWrapper.createNull({ prNumber: 42 });
+    const actions = git.trackActions();
+    const opens = gh.trackOpens();
+
+    const { number } = await openDraftPr({
+      specifiers: ['ekolite/config', 'ekolite/testing'],
+      git,
+      gh,
+    });
+
+    expect(number).toBe(42);
+    expect(actions.data.map((action) => action.action)).toEqual([
+      'createBranch',
+      'commitAll',
+      'push',
+    ]);
+    const [open] = opens.data;
+    expect(open?.body).toContain('ekolite/config');
+    expect(open?.body).toContain('ekolite/testing');
+    expect(open?.body.toLowerCase()).toContain('machine-drafted');
   });
 });
