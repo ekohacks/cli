@@ -27,7 +27,15 @@ should change, each as a whole new body. A file it would leave alone is not in t
 the second run of an in-step repo returns nothing. The thin shell does the writing; the policy
 stays pure and is pinned without touching a disk.
 
-b. **The block gains what the exports added.** A missing specifier is inserted after the last
+b. **Build output is never edited.** Files under `.vitepress/` are left alone, the same
+exclusion the check applies to scanning. A rendered page can carry a block it inherited from a
+source file, and rewriting a build artefact edits something no one committed.
+
+c. **An unclosed block is left alone.** A block whose closing marker is missing is returned
+untouched and its file is not an edit. The check already fails it by name and says so; a sync
+that guessed where the block ended would be guessing with someone's prose.
+
+d. **The block gains what the exports added.** A missing specifier is inserted after the last
 import line already in the block, in the order the exports map declares, as a namespace import:
 `import * as config from 'ekolite/config';`. Copying the shape of the neighbouring lines was
 the obvious answer and it is the wrong one — a named import needs a binding the exports map
@@ -35,20 +43,20 @@ does not name, so the tool would be inventing an API into the docs. A namespace 
 only the specifier, which the tool does know. It is a scaffold either way, and a person writing
 the example replaces it with the real call.
 
-c. **The block loses what the exports dropped.** An import line whose specifier is no longer
+e. **The block loses what the exports dropped.** An import line whose specifier is no longer
 exported is removed, and nothing else inside the block moves.
 
-d. **The count follows the exports.** Every "N entry points" claim is rewritten to the real
+f. **The count follows the exports.** Every "N entry points" claim is rewritten to the real
 count in the form it was written: a digit stays a digit, `Four` becomes `Five`, `four` becomes
 `five`. Above ten there is no word form, so the claim is rewritten as a digit.
 
-e. **A new entry point gets a stub.** For each entry point with no page, sync writes
+g. **A new entry point gets a stub.** For each entry point with no page, sync writes
 `docs/<name>.md`: a heading, the import line, a fenced example marked as a placeholder, a
 "What works today" bullet, and a line naming the exact `config.mts` sidebar entry a human must
 add. An existing file is never overwritten. The bare package name has no stub — the front page
 documents it.
 
-f. **The command writes and reports.** `ekohacks docs sync` prints one line per file written,
+h. **The command writes and reports.** `ekohacks docs sync` prints one line per file written,
 prints that the docs are already in step when there is nothing to do, and exits 0 either way.
 `--dry-run` prints the same lines and writes nothing.
 
