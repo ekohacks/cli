@@ -157,8 +157,7 @@ export const docsCheck = async ({
 };
 
 // Walks the same markers blockRegions does, but rebuilds the document around each region so a
-// rewrite can be handed back in place. An unclosed block is left exactly as it was: the check
-// already fails it by name, and guessing where it ends is how a tool eats someone's prose.
+// rewrite can be handed back in place.
 const mapBlocks = (content: string, rewrite: (region: string) => string): string => {
   let rest = content;
   let out = '';
@@ -169,9 +168,6 @@ const mapBlocks = (content: string, rewrite: (region: string) => string): string
     }
     const afterOpen = rest.slice(open + OPEN_MARKER.length);
     const close = afterOpen.indexOf(CLOSE_MARKER);
-    if (close === -1) {
-      return out + rest;
-    }
     out += rest.slice(0, open) + OPEN_MARKER + rewrite(afterOpen.slice(0, close)) + CLOSE_MARKER;
     rest = afterOpen.slice(close + CLOSE_MARKER.length);
   }
