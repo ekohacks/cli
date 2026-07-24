@@ -13,6 +13,10 @@ export interface DocsReport {
   checks: { name: string; passed: boolean; reason?: string }[];
 }
 
+export interface DocsSyncResult {
+  edits: DocsFile[];
+}
+
 // The public entry points an exports map declares, as the specifiers a consumer imports:
 // "." is the bare package name, "./react" is pkg/react. A package with no exports map —
 // or a conditions-only one, with no "." keys — has a single entry point: itself.
@@ -151,3 +155,17 @@ export const docsCheck = async ({
 
   return { checks };
 };
+
+// The mechanical half of the drift the check names: the same inputs, and instead of a report
+// the files whose content should change, each as a whole new body. The shell does the writing,
+// so the policy stays pure — and a file this would leave alone never reaches the caller, which
+// is what makes a second run against a repo already in step write nothing.
+export const docsSync = ({
+  pkg,
+  exports,
+  files,
+}: {
+  pkg: string;
+  exports: unknown;
+  files: DocsFile[];
+}): DocsSyncResult => ({ edits: [] });
