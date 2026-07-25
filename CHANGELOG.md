@@ -2,6 +2,18 @@
 
 All notable changes to `ekohacks` are recorded here.
 
+## 0.5.1
+
+### Fixed
+
+- **`ekohacks release ship` resumes at the gate.** When a Release has already been cut but its
+  publish is stalled waiting on the deployment gate, ship now steps over the cut — skipping the
+  confirm that has nothing to confirm and the `gh release create` that would fail with
+  `Release.tag_name already exists` — and goes straight to approving the gate. Born from the
+  0.5.0 release, where exactly that happened: a correct Release sat behind an un-approved gate and
+  re-running ship died on the 422 instead of picking up where it left off. A first run, with no
+  Release yet, still asks and cuts as before; the gate's own confirm still asks.
+
 ## 0.5.0
 
 ### Added
