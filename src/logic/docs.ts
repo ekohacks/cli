@@ -1,8 +1,15 @@
+import { ClaudeWrapper } from '../infrastructure/claude.ts';
+import { GhWrapper } from '../infrastructure/gh.ts';
+import { GitWrapper } from '../infrastructure/git.ts';
 import { ProcessRunner } from '../infrastructure/process.ts';
+
+const DRAFT_BRANCH = 'docs/draft';
 
 const DOCS_BUILD_COMMAND = 'npm run docs:build';
 const OPEN_MARKER = '<!-- ekohacks:entry-points -->';
 const CLOSE_MARKER = '<!-- /ekohacks:entry-points -->';
+const DRAFT_OPEN = '<!-- ekohacks:draft -->';
+const DRAFT_CLOSE = '<!-- /ekohacks:draft -->';
 
 export interface DocsFile {
   path: string;
@@ -15,6 +22,12 @@ export interface DocsReport {
 
 export interface DocsSyncResult {
   edits: DocsFile[];
+}
+
+export interface DraftPrompt {
+  specifier: string;
+  path: string;
+  prompt: string;
 }
 
 // The public entry points an exports map declares, as the specifiers a consumer imports:
@@ -214,14 +227,22 @@ const syncedBlock = (region: string, pkg: string, entries: string[]): string => 
 };
 
 // A page the tool can write without knowing anything it does not know: the import line it can
-// derive, and a TODO everywhere prose belongs. The sidebar is code the sync will not touch, so
-// the line a human has to add is spelled out rather than written.
+// derive, and a TODO everywhere prose belongs. The example and "what works today" live inside a
+// draft block the drafting tool owns, the seam `docs draft` writes into; the heading above and
+// the sidebar TODO below stay outside it, so a draft never touches them. The sidebar is code the
+// sync will not touch, so the line a human has to add is spelled out rather than written.
+// The page a specifier documents, derived from the specifier alone: ekolite/config → config.
+// stubFor writes it and draftPrompts reads it back, so it lives in one place rather than two.
+const pageNameFor = (specifier: string): string => specifier.split('/').at(-1) ?? specifier;
+
 const stubFor = (specifier: string): DocsFile => {
-  const name = specifier.split('/').at(-1) ?? specifier;
+  const name = pageNameFor(specifier);
   return {
     path: `docs/${name}.md`,
     content: [
       `# ${specifier}`,
+      '',
+      DRAFT_OPEN,
       '',
       '```ts',
       importLineFor(specifier),
@@ -232,6 +253,8 @@ const stubFor = (specifier: string): DocsFile => {
       '## What works today',
       '',
       '- TODO: what a reader can rely on today, not what is planned.',
+      '',
+      DRAFT_CLOSE,
       '',
       '<!-- TODO: add this page to the sidebar in docs/.vitepress/config.mts:',
       `     { text: '${name}', link: '/${name}' } -->`,
@@ -306,4 +329,154 @@ export const docsSync = ({
     }
   }
   return { edits };
+};
+
+// The exports map value a specifier resolves to, so the prompt can show the entry point's real
+// shape. The key is the mirror of entryPointsFrom: pkg is ".", pkg/config is "./config".
+const exportsEntryFor = (pkg: string, exports: unknown, specifier: string): unknown => {
+  if (typeof exports !== 'object' || exports === null) {
+    return undefined;
+  }
+  const key = specifier === pkg ? '.' : `./${specifier.slice(pkg.length + 1)}`;
+  return (exports as Record<string, unknown>)[key];
+};
+
+// One prompt per undrafted page — a page carrying a draft block whose entry point the exports
+// map still declares. The repo is the style guide: the prompt quotes two existing pages verbatim
+// rather than describing a voice, so the draft tracks the docs instead of a copy of them. Pure —
+// the caller runs the model and lands the result.
+export const draftPrompts = ({
+  pkg,
+  exports,
+  files,
+}: {
+  pkg: string;
+  exports: unknown;
+  files: DocsFile[];
+}): DraftPrompt[] => {
+  const scanned = files.filter((file) => !file.path.split('/').includes('.vitepress'));
+  const voice = scanned
+    .filter((file) => !file.content.includes(DRAFT_OPEN))
+    .sort((a, b) => a.path.localeCompare(b.path))
+    .slice(0, 2)
+    .map((page) => `--- ${page.path} ---\n${page.content}`)
+    .join('\n\n');
+
+  const prompts: DraftPrompt[] = [];
+  for (const specifier of entryPointsFrom(pkg, exports)) {
+    if (specifier === pkg) {
+      continue;
+    }
+    const path = `docs/${pageNameFor(specifier)}.md`;
+    const page = scanned.find((file) => file.path === path);
+    if (page === undefined || !page.content.includes(DRAFT_OPEN)) {
+      continue;
+    }
+    const prompt = [
+      `You are writing the documentation page for the \`${specifier}\` entry point of \`${pkg}\`.`,
+      '',
+      "Its entry in the package's exports map:",
+      '',
+      JSON.stringify(exportsEntryFor(pkg, exports, specifier), null, 2),
+      '',
+      'The page as it stands, a scaffold with a draft block to fill:',
+      '',
+      page.content,
+      '',
+      'Write only what belongs inside the draft block: one import-and-use example that runs, and a',
+      'short "what works today" list. Do not invent API the exports map does not name. Match the',
+      'voice, structure and formatting of these existing pages exactly:',
+      '',
+      voice,
+    ].join('\n');
+    prompts.push({ specifier, path, prompt });
+  }
+  return prompts;
+};
+
+// The drafted prose replaces the contents of the draft block and nothing else — the heading
+// above it and the sidebar TODO below it are outside the markers, so they survive. A page with
+// no block is returned unchanged, which is how docsDraft leaves a human's prose alone.
+const applyDraft = (content: string, prose: string): string => {
+  const open = content.indexOf(DRAFT_OPEN);
+  if (open === -1) {
+    return content;
+  }
+  const afterOpen = content.slice(open + DRAFT_OPEN.length);
+  const close = afterOpen.indexOf(DRAFT_CLOSE);
+  if (close === -1) {
+    return content;
+  }
+  const before = content.slice(0, open);
+  const after = afterOpen.slice(close + DRAFT_CLOSE.length);
+  return `${before}${DRAFT_OPEN}\n\n${prose.trim()}\n\n${DRAFT_CLOSE}${after}`;
+};
+
+// The drafting policy: one model call per undrafted page, the returned prose landed in that
+// page's block. Same shape as docsSync — the files whose content should change, each a whole
+// new body — so the shell writes a draft exactly as it writes a sync. The model's output is
+// whatever the wrapper answers; the policy only decides where it lands.
+export const docsDraft = async ({
+  pkg,
+  exports,
+  files,
+  claude,
+}: {
+  pkg: string;
+  exports: unknown;
+  files: DocsFile[];
+  claude: ClaudeWrapper;
+}): Promise<DocsSyncResult> => {
+  const edits: DocsFile[] = [];
+  for (const { path, prompt } of draftPrompts({ pkg, exports, files })) {
+    const page = files.find((file) => file.path === path);
+    if (page === undefined) {
+      continue;
+    }
+    const prose = await claude.complete(prompt);
+    edits.push({ path, content: applyDraft(page.content, prose) });
+  }
+  return { edits };
+};
+
+export type OpenDraftPrResult = { number: number } | { stopped: string };
+
+// The one place the draft branch and its collision message live. The shell asks this before it
+// spends on the model, so a repeat run stops for free instead of drafting into a branch it can
+// never open; openDraftPr asks it again at the last moment as the real safety.
+export const draftBranchConflict = async (git: GitWrapper): Promise<string | undefined> =>
+  (await git.branchExists(DRAFT_BRANCH))
+    ? `branch ${DRAFT_BRANCH} already exists from an earlier draft`
+    : undefined;
+
+// Opens the PR for drafts the shell has already written to disk: branch, commit, push, open —
+// the same moves as cut, but it stops at the open. Where release cut pauses for a human to
+// merge, this never merges: machine-drafted prose is a suggestion, and the PR body says so, so
+// the worst a bad draft can do is wait in review. `git switch -c` keeps the working-tree edits,
+// so the branch is created after the write. Like cut, it refuses a branch an earlier draft left
+// behind rather than letting git throw on the collision.
+export const openDraftPr = async ({
+  specifiers,
+  git,
+  gh,
+}: {
+  specifiers: string[];
+  git: GitWrapper;
+  gh: GhWrapper;
+}): Promise<OpenDraftPrResult> => {
+  const conflict = await draftBranchConflict(git);
+  if (conflict !== undefined) {
+    return { stopped: conflict };
+  }
+  await git.createBranch(DRAFT_BRANCH);
+  await git.commitAll('docs: draft the scaffolded entry point pages');
+  await git.push();
+  const body = [
+    'Machine-drafted documentation for entry points that carried only a scaffold. The prose is',
+    'unreviewed — read every line before merging, and treat it as a starting point, not an answer.',
+    '',
+    'Drafted:',
+    ...specifiers.map((specifier) => `- \`${specifier}\``),
+  ].join('\n');
+  return gh.openPr({ title: 'docs: draft the scaffolded entry point pages', body });
 };

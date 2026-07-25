@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { ProcessRunner } from '../../src/infrastructure/process.ts';
-import { docsCheck, docsSync } from '../../src/logic/docs.ts';
+import { ClaudeWrapper } from '../../src/infrastructure/claude.ts';
+import { GhWrapper } from '../../src/infrastructure/gh.ts';
+import { GitWrapper } from '../../src/infrastructure/git.ts';
+import {
+  docsCheck,
+  docsDraft,
+  docsSync,
+  draftBranchConflict,
+  draftPrompts,
+  openDraftPr,
+} from '../../src/logic/docs.ts';
 
 const EXPORTS = {
   '.': { import: './dist/server/index.js' },
@@ -313,6 +323,8 @@ describe('docs sync', () => {
         content: [
           '# ekolite/config',
           '',
+          '<!-- ekohacks:draft -->',
+          '',
           '```ts',
           "import * as config from 'ekolite/config';",
           '',
@@ -322,6 +334,8 @@ describe('docs sync', () => {
           '## What works today',
           '',
           '- TODO: what a reader can rely on today, not what is planned.',
+          '',
+          '<!-- /ekohacks:draft -->',
           '',
           '<!-- TODO: add this page to the sidebar in docs/.vitepress/config.mts:',
           "     { text: 'config', link: '/config' } -->",
@@ -358,5 +372,146 @@ describe('docs sync', () => {
     expect(result.edits).toEqual([
       { path: 'docs/quick-start.md', content: `11 entry points:\n\n${inStep}` },
     ]);
+  });
+});
+
+const draftStub = (specifier: string) =>
+  [
+    `# ${specifier}`,
+    '',
+    '<!-- ekohacks:draft -->',
+    '',
+    '```ts',
+    `import * as thing from '${specifier}';`,
+    '```',
+    '',
+    '<!-- /ekohacks:draft -->',
+    '',
+  ].join('\n');
+
+describe('docs draft', () => {
+  const exports = { ...EXPORTS, './config': { import: './dist/server/config.js' } };
+  const overview = {
+    path: 'docs/overview.md',
+    content: '# Overview\n\nEkoLite is a real time backend.\n',
+  };
+  const quickStart = {
+    path: 'docs/quick-start.md',
+    content: '# Quick start\n\nInstall it and go.\n',
+  };
+  const stub = { path: 'docs/config.md', content: draftStub('ekolite/config') };
+
+  it('builds one prompt per page carrying a draft block', () => {
+    const prompts = draftPrompts({ pkg: 'ekolite', exports, files: [overview, quickStart, stub] });
+
+    expect(prompts.map((prompt) => ({ specifier: prompt.specifier, path: prompt.path }))).toEqual([
+      { specifier: 'ekolite/config', path: 'docs/config.md' },
+    ]);
+  });
+
+  it('carries the entry point, its exports entry, the stub, and two docs pages as the voice sample', () => {
+    const [prompt] = draftPrompts({
+      pkg: 'ekolite',
+      exports,
+      files: [overview, quickStart, stub],
+    });
+
+    expect(prompt?.prompt).toContain('ekolite/config');
+    expect(prompt?.prompt).toContain('./dist/server/config.js');
+    expect(prompt?.prompt).toContain(stub.content);
+    expect(prompt?.prompt).toContain('EkoLite is a real time backend.');
+    expect(prompt?.prompt).toContain('Install it and go.');
+  });
+
+  it('lands the drafted prose inside the block and leaves the rest of the page', async () => {
+    const claude = ClaudeWrapper.createNull({ responses: ['## Example\n\nrun it.'] });
+
+    const result = await docsDraft({
+      pkg: 'ekolite',
+      exports,
+      files: [overview, quickStart, stub],
+      claude,
+    });
+
+    expect(result.edits).toEqual([
+      {
+        path: 'docs/config.md',
+        content: [
+          '# ekolite/config',
+          '',
+          '<!-- ekohacks:draft -->',
+          '',
+          '## Example',
+          '',
+          'run it.',
+          '',
+          '<!-- /ekohacks:draft -->',
+          '',
+        ].join('\n'),
+      },
+    ]);
+  });
+
+  it('never drafts a page that carries no draft block', async () => {
+    const claude = ClaudeWrapper.createNull({ responses: ['ignored'] });
+
+    const result = await docsDraft({
+      pkg: 'ekolite',
+      exports,
+      files: [overview, quickStart],
+      claude,
+    });
+
+    expect(result.edits).toEqual([]);
+  });
+
+  it('branches, commits, pushes, and opens a PR naming each drafted entry point', async () => {
+    const git = GitWrapper.createNull();
+    const gh = GhWrapper.createNull({ prNumber: 42 });
+    const actions = git.trackActions();
+    const opens = gh.trackOpens();
+
+    const result = await openDraftPr({
+      specifiers: ['ekolite/config', 'ekolite/testing'],
+      git,
+      gh,
+    });
+
+    if ('stopped' in result) {
+      throw new Error(`unexpected stop: ${result.stopped}`);
+    }
+    expect(result.number).toBe(42);
+    expect(actions.data.map((action) => action.action)).toEqual([
+      'createBranch',
+      'commitAll',
+      'push',
+    ]);
+    const [open] = opens.data;
+    expect(open?.body).toContain('ekolite/config');
+    expect(open?.body).toContain('ekolite/testing');
+    expect(open?.body.toLowerCase()).toContain('machine-drafted');
+  });
+
+  it('stops when the draft branch already exists, touching nothing', async () => {
+    const git = GitWrapper.createNull({ existingBranches: ['docs/draft'] });
+    const gh = GhWrapper.createNull();
+    const actions = git.trackActions();
+    const opens = gh.trackOpens();
+
+    const result = await openDraftPr({ specifiers: ['ekolite/config'], git, gh });
+
+    expect(result).toEqual({ stopped: 'branch docs/draft already exists from an earlier draft' });
+    expect(actions.data).toEqual([]);
+    expect(opens.data).toEqual([]);
+  });
+
+  it('names the branch conflict when it is taken and is silent when it is free', async () => {
+    const free = GitWrapper.createNull();
+    const taken = GitWrapper.createNull({ existingBranches: ['docs/draft'] });
+
+    expect(await draftBranchConflict(free)).toBeUndefined();
+    expect(await draftBranchConflict(taken)).toBe(
+      'branch docs/draft already exists from an earlier draft',
+    );
   });
 });
