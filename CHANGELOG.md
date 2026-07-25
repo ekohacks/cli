@@ -2,6 +2,14 @@
 
 All notable changes to `ekohacks` are recorded here.
 
+## 0.6.0
+
+### Added
+
+- **`eko`, a short alias for the CLI.** The package now installs two bins, `ekohacks` and `eko`,
+  both the same command — `eko release 0.6.0`, `eko docs check`. The long name stays canonical in
+  the usage text; the short one is there for the hands that type it all day.
+
 ## 0.5.1
 
 ### Fixed

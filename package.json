@@ -40,7 +40,8 @@
     "vitest": "^4.1.10"
   },
   "bin": {
-    "ekohacks": "dist/cli.js"
+    "ekohacks": "dist/cli.js",
+    "eko": "dist/cli.js"
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.115.0"
