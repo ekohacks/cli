@@ -47,16 +47,22 @@ export class GhWrapper {
     checkRounds = [[]],
     waitingRunRounds = [undefined],
     runRounds = [{ concluded: true, passed: true, url: 'https://github.com/nulled/nulled' }],
+    existingReleases = [],
   }: {
     prNumber?: number;
     checkRounds?: PrCheck[][];
     waitingRunRounds?: (number | undefined)[];
     runRounds?: RunState[];
+    existingReleases?: string[];
   } = {}): GhWrapper {
     let round = 0;
     let runRound = 0;
     let waitingRound = 0;
     return new GhWrapper((args) => {
+      if (args[0] === 'release' && args[1] === 'view') {
+        const exists = existingReleases.includes(args[2] ?? '');
+        return Promise.resolve({ exitCode: exists ? 0 : 1, stdout: '', stderr: '' });
+      }
       if (args[0] === 'run' && args[1] === 'view') {
         const index = Math.min(runRound, runRounds.length - 1);
         runRound += 1;
@@ -246,6 +252,13 @@ export class GhWrapper {
     const tracker: CreateReleaseOptions[] = [];
     this.releaseTrackers.push(tracker);
     return { data: tracker };
+  }
+
+  // gh release view exits 0 when the release exists and non-zero when it does not, the same
+  // shape branchExists reads from git, so existence is in the exit code, not the output.
+  async releaseExists(tag: string): Promise<boolean> {
+    const result = await this.runGh(['release', 'view', tag]);
+    return result.exitCode === 0;
   }
 
   async createRelease(options: CreateReleaseOptions): Promise<void> {

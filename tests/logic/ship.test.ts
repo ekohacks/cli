@@ -91,6 +91,29 @@ describe('ship', () => {
     expect(releases.data).toEqual([]);
   });
 
+  it('steps over a release already cut, going straight to the gate', async () => {
+    const gh = GhWrapper.createNull({ waitingRunRounds: [123], existingReleases: ['v0.5.0'] });
+    const releases = gh.trackReleases();
+    const approvals = gh.trackApprovals();
+    const questions: string[] = [];
+    const lines: string[] = [];
+
+    const result = await runShip({
+      gh,
+      confirmRelease: (question) => {
+        questions.push(question);
+        return Promise.resolve(true);
+      },
+      narrate: (line) => lines.push(line),
+    });
+
+    expect(result).toEqual({ shipped: '0.5.0' });
+    expect(releases.data).toEqual([]);
+    expect(questions).toEqual([]);
+    expect(approvals.data).toEqual([123]);
+    expect(lines).toContain('release v0.5.0 already cut');
+  });
+
   it('waits for the publish run to appear', async () => {
     const gh = GhWrapper.createNull({ waitingRunRounds: [undefined, 123] });
     const approvals = gh.trackApprovals();

@@ -52,6 +52,13 @@ describe('GhWrapper (nulled)', () => {
     ]);
   });
 
+  it('answers whether a release exists from the configured set', async () => {
+    const gh = GhWrapper.createNull({ existingReleases: ['v0.5.0'] });
+
+    expect(await gh.releaseExists('v0.5.0')).toBe(true);
+    expect(await gh.releaseExists('v0.6.0')).toBe(false);
+  });
+
   it('answers the configured waiting publish run', async () => {
     const gh = GhWrapper.createNull({ waitingRunRounds: [123] });
 

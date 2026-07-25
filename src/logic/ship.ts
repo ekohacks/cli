@@ -47,12 +47,19 @@ export const ship = async ({
   }
 
   const tag = `v${version}`;
-  if (!(await confirmRelease(`cut release ${tag}?`))) {
-    return { stopped: 'release not approved' };
+  // A Release already cut is the resume point: the publish is stalled behind its gate, so step
+  // over the cut — the confirm has nothing to confirm and the create would 422 — and pick up at
+  // the gate. The gate's own confirm still asks, so resuming approves nothing a human did not.
+  if (await gh.releaseExists(tag)) {
+    narrate(`release ${tag} already cut`);
+  } else {
+    if (!(await confirmRelease(`cut release ${tag}?`))) {
+      return { stopped: 'release not approved' };
+    }
+    const notes = changelogEntryFor(changelog, version) ?? '';
+    await gh.createRelease({ tag, title: tag, notes });
+    narrate(`release ${tag} cut`);
   }
-  const notes = changelogEntryFor(changelog, version) ?? '';
-  await gh.createRelease({ tag, title: tag, notes });
-  narrate(`release ${tag} cut`);
 
   // The run takes a few seconds to appear after the release event, so a miss here is
   // usually the race, not a missing workflow: ask again briefly before giving up.
