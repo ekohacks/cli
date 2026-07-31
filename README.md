@@ -12,6 +12,8 @@ The second command is `ekohacks docs check`, specified in [`stories/6-docs-check
 
 `ekohacks docs sync` is the other half, specified in [`stories/8-docs-sync.md`](stories/8-docs-sync.md): it writes the edits the check can prove — the entry-point block, the prose counts — and scaffolds a stub page for an entry point the docs just gained, leaving the prose to a person. [`stories/9-docs-draft.md`](stories/9-docs-draft.md) specifies drafting that prose and opening a PR for a human to review; it is written down, not built.
 
+The third command is `ekohacks stories`, specified in stories [11](stories/11-stories-fetch.md)–[13](stories/13-stories-create.md): the Linear board as a surface. `fetch` reads a whole column across pages, `archive` empties it once it has been read (reversible, batched, safe to re-run), and `create` pushes a new project's backlog from a JSON file with a `--dry-run` preview. It grew from the dojo's story-audit workshop scripts and the propi-o backlog push, and needs `LINEAR_API_KEY` in the environment.
+
 ## How this is built
 
 - A tested core policy behind nullable infrastructure, in the style of [James Shore's Testing Without Mocks](https://www.jamesshore.com/v2/projects/nullables): real wrappers around `git`, `gh` and `npm`, each with a `createNull()` that answers with configurable responses and records what was asked of it. No mocks, no spies.
