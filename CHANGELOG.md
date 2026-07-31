@@ -2,6 +2,28 @@
 
 All notable changes to `ekohacks` are recorded here.
 
+## 0.7.0
+
+### Added
+
+- **`ekohacks stories fetch <team> <column> [out.json]`.** The Linear board as a surface, in the
+  practice's language: cards are stories, so the command is `stories`, and Linear stays an
+  infrastructure detail. Fetch reads a whole column across cursor pages — every page narrated, so
+  reading page one and declaring victory stays impossible — prints one pipeable
+  `DOJ-77 [xp] title` line per story, sorted, and writes the full six-field JSON when given a
+  file: the backup archiving asks for. Needs `LINEAR_API_KEY`; a missing key stops with a named
+  reason before any request.
+- **`ekohacks stories archive <team> <column>`.** Empties a column once it has been read —
+  archive, not delete, so the record survives the tidying and stays queryable. Batches 25
+  `issueArchive` calls per request behind GraphQL aliases and converges by re-fetching until the
+  column answers empty, so a re-run after a partial failure picks up exactly where it stopped.
+  Nothing is archived without the confirm naming the count; `--yes` answers it for automation.
+- **`ekohacks stories create <team> <backlog.json>`.** Pushes a new project's backlog from a JSON
+  file of `{ title, description, children }`, nesting to any depth, parents created before
+  children so each child carries its parent's minted id. `--dry-run` prints the would-have tree
+  and never touches the board; an unknown team key, a missing title and an unapproved confirm
+  each stop with their named reason and create nothing.
+
 ## 0.6.0
 
 ### Added
