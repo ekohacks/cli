@@ -4,6 +4,7 @@ import {
   storiesArchive,
   storiesCreate,
   storiesFetch,
+  storiesOverview,
   storyLine,
   type BacklogStory,
 } from '../../src/logic/stories.ts';
@@ -29,6 +30,59 @@ describe('storyLine', () => {
     const line = storyLine(story('DOJ-77', { labels: ['xp', 'dojo'], title: 'A quiet week' }));
 
     expect(line).toBe('DOJ-77 [xp,dojo] A quiet week');
+  });
+
+  it('skips the bracket when a story has no labels', () => {
+    const line = storyLine(story('DOJ-40', { title: 'Metered billing' }));
+
+    expect(line).toBe('DOJ-40 Metered billing');
+  });
+});
+
+describe('storiesOverview', () => {
+  it('counts every column across pages, empty ones included', async () => {
+    const linear = LinearWrapper.createNull({
+      teams: { DOJ: { id: 'team-uuid', columns: ['Backlog', 'In Progress', 'Done'] } },
+      board: [
+        [
+          { identifier: 'DOJ-1', column: 'Done' },
+          { identifier: 'DOJ-2', column: 'Backlog' },
+        ],
+        [{ identifier: 'DOJ-3', column: 'Done' }],
+      ],
+    });
+    const lines: string[] = [];
+
+    const result = await storiesOverview({
+      team: 'DOJ',
+      linear,
+      narrate: (line) => lines.push(line),
+    });
+
+    expect(result).toEqual({
+      board: [
+        { column: 'Backlog', count: 1 },
+        { column: 'In Progress', count: 0 },
+        { column: 'Done', count: 2 },
+      ],
+    });
+    expect(lines).toEqual(['page 1: 2 stories', 'page 2: 1 stories']);
+  });
+
+  it('stops when the team is unknown, before any page', async () => {
+    const linear = LinearWrapper.createNull({
+      board: [[{ identifier: 'DOJ-1', column: 'Done' }]],
+    });
+    const lines: string[] = [];
+
+    const result = await storiesOverview({
+      team: 'DOJ',
+      linear,
+      narrate: (line) => lines.push(line),
+    });
+
+    expect(result).toEqual({ stopped: 'no team with key DOJ' });
+    expect(lines).toEqual([]);
   });
 });
 

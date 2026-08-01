@@ -1,6 +1,7 @@
 import type { LinearWrapper, Story } from '../infrastructure/linear.ts';
 
 export type FetchResult = { stories: Story[] } | { stopped: string };
+export type OverviewResult = { board: { column: string; count: number }[] } | { stopped: string };
 export type ArchiveResult = { archived: number } | { stopped: string };
 export type CreateResult = { created: number } | { stopped: string };
 
@@ -36,7 +37,9 @@ const resolveColumn = async ({
 };
 
 export const storyLine = (story: Story): string =>
-  `${story.identifier} [${story.labels.join(',')}] ${story.title}`;
+  story.labels.length === 0
+    ? `${story.identifier} ${story.title}`
+    : `${story.identifier} [${story.labels.join(',')}] ${story.title}`;
 
 // The read half of the workshop scripts as policy: pages of a hundred, the cursor from one
 // page becoming the after of the next, merged and sorted by issue number. Every page count
@@ -69,6 +72,38 @@ export const storiesFetch = async ({
   }
   stories.sort((a, b) => issueNumber(a.identifier) - issueNumber(b.identifier));
   return { stories };
+};
+
+// The board at a glance: one paginated walk of the whole team, counted locally, one row
+// per column in board order. The board's own columns seed the counts so an empty column
+// prints its zero — the point of an overview is the whole board, not the busy part.
+export const storiesOverview = async ({
+  team,
+  linear,
+  narrate,
+}: {
+  team: string;
+  linear: LinearWrapper;
+  narrate: (line: string) => void;
+}): Promise<OverviewResult> => {
+  const found = await linear.team(team);
+  if (found === undefined) {
+    return { stopped: `no team with key ${team}` };
+  }
+  const counts = new Map(found.columns.map((column) => [column, 0]));
+  let after: string | undefined;
+  for (let page = 1; ; page += 1) {
+    const result = await linear.boardPage({ team, after });
+    narrate(`page ${page}: ${result.rows.length} stories`);
+    for (const row of result.rows) {
+      counts.set(row.column, (counts.get(row.column) ?? 0) + 1);
+    }
+    if (result.nextCursor === undefined) {
+      break;
+    }
+    after = result.nextCursor;
+  }
+  return { board: [...counts.entries()].map(([column, count]) => ({ column, count })) };
 };
 
 // The mutation half: batches of aliased issueArchive calls, re-fetching the first page of

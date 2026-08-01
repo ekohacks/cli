@@ -28,6 +28,7 @@ import {
   storiesArchive,
   storiesCreate,
   storiesFetch,
+  storiesOverview,
   storyLine,
   type BacklogStory,
 } from './logic/stories.ts';
@@ -37,7 +38,7 @@ const USAGE = [
   '       ekohacks docs check',
   '       ekohacks docs sync [--dry-run]',
   '       ekohacks docs draft [--yes]',
-  '       ekohacks stories fetch <team> <column> [out.json]',
+  '       ekohacks stories fetch <team> [<column> [out.json]]',
   '       ekohacks stories archive <team> <column> [--yes]',
   '       ekohacks stories create <team> <backlog.json> [--yes] [--dry-run]',
 ].join('\n');
@@ -183,10 +184,10 @@ if (command === 'stories') {
   const target = rest[2];
   const shapeOk =
     team !== undefined &&
-    target !== undefined &&
     ((subject === 'fetch' && rest.length <= 4) ||
-      (subject === 'archive' && rest.length === 3) ||
-      (subject === 'create' && rest.length === 3));
+      (target !== undefined &&
+        ((subject === 'archive' && rest.length === 3) ||
+          (subject === 'create' && rest.length === 3))));
   if (!shapeOk) {
     console.error(USAGE);
     process.exit(2);
@@ -198,7 +199,18 @@ if (command === 'stories') {
   const linear = LinearWrapper.create();
   const approve = yes ? () => Promise.resolve(true) : confirm;
   try {
-    if (subject === 'fetch') {
+    if (subject === 'fetch' && target === undefined) {
+      const result = await storiesOverview({ team, linear, narrate });
+      if ('stopped' in result) {
+        console.error(`stopped: ${result.stopped}`);
+        process.exit(1);
+      }
+      for (const { column, count } of result.board) {
+        console.log(`${column}: ${count}`);
+      }
+      process.exit(0);
+    }
+    if (subject === 'fetch' && target !== undefined) {
       const out = rest[3];
       const result = await storiesFetch({ team, column: target, linear, narrate });
       if ('stopped' in result) {
@@ -213,6 +225,10 @@ if (command === 'stories') {
         narrate(`${result.stories.length} stories written to ${out}`);
       }
       process.exit(0);
+    }
+    if (target === undefined) {
+      console.error(USAGE);
+      process.exit(2);
     }
     if (subject === 'archive') {
       const result = await storiesArchive({
