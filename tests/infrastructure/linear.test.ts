@@ -46,6 +46,29 @@ describe('LinearWrapper', () => {
     expect(page.stories[0]?.labels).toEqual(['xp', 'dojo']);
   });
 
+  it('answers board pages of identifiers with their columns', async () => {
+    const linear = LinearWrapper.createNull({
+      board: [
+        [
+          { identifier: 'DOJ-1', column: 'Done' },
+          { identifier: 'DOJ-2', column: 'Backlog' },
+        ],
+        [{ identifier: 'DOJ-3', column: 'Done' }],
+      ],
+    });
+
+    const first = await linear.boardPage({ team: 'DOJ' });
+    expect(first.rows).toEqual([
+      { identifier: 'DOJ-1', column: 'Done' },
+      { identifier: 'DOJ-2', column: 'Backlog' },
+    ]);
+    expect(first.nextCursor).toBeDefined();
+
+    const second = await linear.boardPage({ team: 'DOJ', after: first.nextCursor });
+    expect(second.rows).toEqual([{ identifier: 'DOJ-3', column: 'Done' }]);
+    expect(second.nextCursor).toBeUndefined();
+  });
+
   it('answers story ids round by round, the last round repeating', async () => {
     const linear = LinearWrapper.createNull({
       idRounds: [[{ id: 'uuid-1', identifier: 'DOJ-1' }], []],
