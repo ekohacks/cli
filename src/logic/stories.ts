@@ -1,5 +1,6 @@
 import type { LinearWrapper, Story } from '../infrastructure/linear.ts';
 
+export type FetchResult = { stories: Story[] } | { stopped: string };
 export type ArchiveResult = { archived: number } | { stopped: string };
 export type CreateResult = { created: number } | { stopped: string };
 
@@ -10,6 +11,29 @@ export interface BacklogStory {
 }
 
 const issueNumber = (identifier: string): number => Number(identifier.split('-')[1]);
+
+// A team or column that does not exist must stop by name, never read as an empty board:
+// user testing hit a typo'd column and a wrong-workspace key inside an hour, and both
+// answered silence. Team first — a wrong-workspace key is an unknown team from here —
+// then the column against the names the board actually has.
+const resolveColumn = async ({
+  team,
+  column,
+  linear,
+}: {
+  team: string;
+  column: string;
+  linear: LinearWrapper;
+}): Promise<{ stopped: string } | undefined> => {
+  const found = await linear.team(team);
+  if (found === undefined) {
+    return { stopped: `no team with key ${team}` };
+  }
+  if (!found.columns.includes(column)) {
+    return { stopped: `no column "${column}" in ${team} (it has: ${found.columns.join(', ')})` };
+  }
+  return undefined;
+};
 
 export const storyLine = (story: Story): string =>
   `${story.identifier} [${story.labels.join(',')}] ${story.title}`;
@@ -27,7 +51,11 @@ export const storiesFetch = async ({
   column: string;
   linear: LinearWrapper;
   narrate: (line: string) => void;
-}): Promise<{ stories: Story[] }> => {
+}): Promise<FetchResult> => {
+  const stopped = await resolveColumn({ team, column, linear });
+  if (stopped !== undefined) {
+    return stopped;
+  }
   const stories: Story[] = [];
   let after: string | undefined;
   for (let page = 1; ; page += 1) {
@@ -62,6 +90,10 @@ export const storiesArchive = async ({
   narrate: (line: string) => void;
   batchSize?: number;
 }): Promise<ArchiveResult> => {
+  const stopped = await resolveColumn({ team, column, linear });
+  if (stopped !== undefined) {
+    return stopped;
+  }
   let refs = await linear.storyIds({ team, column });
   if (refs.length === 0) {
     narrate(`nothing to archive in ${team}/${column}`);
@@ -136,10 +168,11 @@ export const storiesCreate = async ({
     narrate(`would have created ${count} stories in ${team}`);
     return { created: 0 };
   }
-  const teamId = await linear.teamId(team);
-  if (teamId === undefined) {
+  const found = await linear.team(team);
+  if (found === undefined) {
     return { stopped: `no team with key ${team}` };
   }
+  const teamId = found.id;
   if (!(await confirm(`create ${count} stories in ${team}?`))) {
     return { stopped: 'create not approved' };
   }

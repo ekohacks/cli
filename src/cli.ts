@@ -200,13 +200,17 @@ if (command === 'stories') {
   try {
     if (subject === 'fetch') {
       const out = rest[3];
-      const { stories } = await storiesFetch({ team, column: target, linear, narrate });
-      for (const story of stories) {
+      const result = await storiesFetch({ team, column: target, linear, narrate });
+      if ('stopped' in result) {
+        console.error(`stopped: ${result.stopped}`);
+        process.exit(1);
+      }
+      for (const story of result.stories) {
         console.log(storyLine(story));
       }
       if (out !== undefined) {
-        writeFileSync(out, `${JSON.stringify(stories, null, 2)}\n`);
-        narrate(`${stories.length} stories written to ${out}`);
+        writeFileSync(out, `${JSON.stringify(result.stories, null, 2)}\n`);
+        narrate(`${result.stories.length} stories written to ${out}`);
       }
       process.exit(0);
     }
