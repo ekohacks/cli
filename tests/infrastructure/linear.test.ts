@@ -80,11 +80,13 @@ describe('LinearWrapper', () => {
     expect(archives.data).toEqual([]);
   });
 
-  it('finds a team id by key and nothing for a stranger', async () => {
-    const linear = LinearWrapper.createNull({ teams: { DOJ: 'team-uuid' } });
+  it('finds a team with its columns by key and nothing for a stranger', async () => {
+    const linear = LinearWrapper.createNull({
+      teams: { DOJ: { id: 'team-uuid', columns: ['Backlog', 'Done'] } },
+    });
 
-    expect(await linear.teamId('DOJ')).toBe('team-uuid');
-    expect(await linear.teamId('NOPE')).toBeUndefined();
+    expect(await linear.team('DOJ')).toEqual({ id: 'team-uuid', columns: ['Backlog', 'Done'] });
+    expect(await linear.team('NOPE')).toBeUndefined();
   });
 
   it('creates stories, minting identifiers, and records the input', async () => {
