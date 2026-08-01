@@ -19,6 +19,11 @@ export interface Team {
   columns: string[];
 }
 
+export interface BoardRow {
+  identifier: string;
+  column: string;
+}
+
 export type CreateStoryOptions = {
   teamId: string;
   title: string;
@@ -68,7 +73,19 @@ const STORY_IDS = `query StoryIds($team: String!, $column: String!) {
 }`;
 
 const TEAM = `query Team($key: String!) {
-  teams(filter: { key: { eq: $key } }) { nodes { id states { nodes { name } } } }
+  teams(filter: { key: { eq: $key } }) { nodes { id states { nodes { name position } } } }
+}`;
+
+const BOARD_PAGE = `query BoardPage($team: String!, $after: String) {
+  issues(
+    filter: { team: { key: { eq: $team } } }
+    first: 100
+    after: $after
+    orderBy: updatedAt
+  ) {
+    pageInfo { hasNextPage endCursor }
+    nodes { identifier state { name } }
+  }
 }`;
 
 const CREATE_STORY = `mutation CreateStory($input: IssueCreateInput!) {
@@ -102,11 +119,13 @@ export class LinearWrapper {
 
   static createNull({
     pages = [[]],
+    board = [[]],
     idRounds = [[]],
     archiveRounds = [],
     teams = {},
   }: {
     pages?: Story[][];
+    board?: BoardRow[][];
     idRounds?: StoryRef[][];
     archiveRounds?: number[];
     teams?: Record<string, Team>;
@@ -141,7 +160,28 @@ export class LinearWrapper {
             nodes:
               team === undefined
                 ? []
-                : [{ id: team.id, states: { nodes: team.columns.map((name) => ({ name })) } }],
+                : [
+                    {
+                      id: team.id,
+                      states: {
+                        nodes: team.columns.map((name, position) => ({ name, position })),
+                      },
+                    },
+                  ],
+          },
+        });
+      }
+      if (body.query.includes('BoardPage')) {
+        const after = body.variables?.after as string | null;
+        const index = after === null ? 0 : Number(after.replace('cursor-', ''));
+        const hasNextPage = index < board.length - 1;
+        return answer({
+          issues: {
+            pageInfo: { hasNextPage, endCursor: hasNextPage ? `cursor-${index + 1}` : null },
+            nodes: (board[index] ?? []).map((row) => ({
+              identifier: row.identifier,
+              state: { name: row.column },
+            })),
           },
         });
       }
@@ -243,15 +283,39 @@ export class LinearWrapper {
     return Object.values(data).filter((entry) => entry.success).length;
   }
 
+  // Columns come back in board order — the API answers states in an order of its own,
+  // position is the order the board shows.
   async team(key: string): Promise<Team | undefined> {
     const data = (await this.query(TEAM, { key })) as {
-      teams: { nodes: { id: string; states: { nodes: { name: string }[] } }[] };
+      teams: { nodes: { id: string; states: { nodes: { name: string; position: number }[] } }[] };
     };
     const node = data.teams.nodes[0];
     if (node === undefined) {
       return undefined;
     }
-    return { id: node.id, columns: node.states.nodes.map((state) => state.name) };
+    const states = [...node.states.nodes].sort((a, b) => a.position - b.position);
+    return { id: node.id, columns: states.map((state) => state.name) };
+  }
+
+  async boardPage({
+    team,
+    after,
+  }: {
+    team: string;
+    after?: string;
+  }): Promise<{ rows: BoardRow[]; nextCursor?: string }> {
+    const data = (await this.query(BOARD_PAGE, { team, after: after ?? null })) as {
+      issues: {
+        pageInfo: { hasNextPage: boolean; endCursor: string | null };
+        nodes: { identifier: string; state: { name: string } }[];
+      };
+    };
+    const rows = data.issues.nodes.map((node) => ({
+      identifier: node.identifier,
+      column: node.state.name,
+    }));
+    const { hasNextPage, endCursor } = data.issues.pageInfo;
+    return hasNextPage && endCursor !== null ? { rows, nextCursor: endCursor } : { rows };
   }
 
   private readonly createTrackers: CreateStoryOptions[][] = [];
