@@ -4,6 +4,15 @@ All notable changes to `ekohacks` are recorded here.
 
 ## 0.8.0
 
+### Added
+
+- **`stories fetch` with just a team is the board at a glance.** `ekohacks stories fetch DOJ`
+  prints every column with its count — zeros included, in the order the board shows its
+  columns — from one paginated walk of the whole team, counted locally. The overview the
+  user test reached for and found missing, specified in
+  [story 15](stories/15-stories-overview.md). Board order comes from the states' positions,
+  which tidies the unknown-column stop message for free.
+
 ### Changed
 
 - **Unknown teams and columns are named stops.** `stories fetch` and `stories archive` used
@@ -15,6 +24,12 @@ All notable changes to `ekohacks` are recorded here.
   already used, and a mistyped column names what the board actually has —
   `no column "InProgress" in GLE (it has: Backlog, Todo, In Progress, …)`. A genuinely
   empty column still reads and converges exactly as before.
+
+### Fixed
+
+- **Unlabelled stories drop the empty bracket.** `stories fetch` printed
+  `DOJ-40 [] Metered billing` for a story with no labels; the bracket now appears only
+  when there are labels to put in it.
 
 ## 0.7.0
 
