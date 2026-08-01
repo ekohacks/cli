@@ -7,12 +7,12 @@ All notable changes to `ekohacks` are recorded here.
 ### Changed
 
 - **Unknown teams and columns are named stops.** `stories fetch` and `stories archive` used
-  to answer a mistyped team or column with silence — `page 1: 0 stories`, `nothing to
-  archive` — indistinguishable from a legitimately empty column. User testing on a real
-  board hit it twice in an hour: once through a stale key for the wrong workspace, once
-  through `InProgress` typed for "In Progress". Both now stop before any page is read:
-  an unknown team answers `no team with key GLE`, the words `create` already used, and a
-  mistyped column names what the board actually has —
+  to answer a mistyped team or column with silence — `page 1: 0 stories` or
+  `nothing to archive` — indistinguishable from a legitimately empty column. User testing
+  on a real board hit it twice in an hour: once through a stale key for the wrong
+  workspace, once through `InProgress` typed for "In Progress". Both now stop before any
+  page is read: an unknown team answers `no team with key GLE`, the words `create`
+  already used, and a mistyped column names what the board actually has —
   `no column "InProgress" in GLE (it has: Backlog, Todo, In Progress, …)`. A genuinely
   empty column still reads and converges exactly as before.
 
