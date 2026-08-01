@@ -14,6 +14,11 @@ export interface StoryRef {
   identifier: string;
 }
 
+export interface Team {
+  id: string;
+  columns: string[];
+}
+
 export type CreateStoryOptions = {
   teamId: string;
   title: string;
@@ -62,8 +67,8 @@ const STORY_IDS = `query StoryIds($team: String!, $column: String!) {
   }
 }`;
 
-const TEAM_ID = `query TeamId($key: String!) {
-  teams(filter: { key: { eq: $key } }) { nodes { id } }
+const TEAM = `query Team($key: String!) {
+  teams(filter: { key: { eq: $key } }) { nodes { id states { nodes { name } } } }
 }`;
 
 const CREATE_STORY = `mutation CreateStory($input: IssueCreateInput!) {
@@ -104,7 +109,7 @@ export class LinearWrapper {
     pages?: Story[][];
     idRounds?: StoryRef[][];
     archiveRounds?: number[];
-    teams?: Record<string, string>;
+    teams?: Record<string, Team>;
   } = {}): LinearWrapper {
     let idRound = 0;
     let archiveRound = 0;
@@ -130,8 +135,15 @@ export class LinearWrapper {
         );
       }
       if (body.query.includes('teams(')) {
-        const id = teams[body.variables?.key as string];
-        return answer({ teams: { nodes: id === undefined ? [] : [{ id }] } });
+        const team = teams[body.variables?.key as string];
+        return answer({
+          teams: {
+            nodes:
+              team === undefined
+                ? []
+                : [{ id: team.id, states: { nodes: team.columns.map((name) => ({ name })) } }],
+          },
+        });
       }
       if (body.query.includes('pageInfo')) {
         const after = body.variables?.after as string | null;
@@ -231,9 +243,15 @@ export class LinearWrapper {
     return Object.values(data).filter((entry) => entry.success).length;
   }
 
-  async teamId(key: string): Promise<string | undefined> {
-    const data = (await this.query(TEAM_ID, { key })) as { teams: { nodes: { id: string }[] } };
-    return data.teams.nodes[0]?.id;
+  async team(key: string): Promise<Team | undefined> {
+    const data = (await this.query(TEAM, { key })) as {
+      teams: { nodes: { id: string; states: { nodes: { name: string }[] } }[] };
+    };
+    const node = data.teams.nodes[0];
+    if (node === undefined) {
+      return undefined;
+    }
+    return { id: node.id, columns: node.states.nodes.map((state) => state.name) };
   }
 
   private readonly createTrackers: CreateStoryOptions[][] = [];

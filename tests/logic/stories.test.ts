@@ -35,32 +35,68 @@ describe('storyLine', () => {
 describe('storiesFetch', () => {
   it('merges every page and sorts by issue number', async () => {
     const linear = LinearWrapper.createNull({
+      teams: { DOJ: { id: 'team-uuid', columns: ['Done'] } },
       pages: [[story('DOJ-10'), story('DOJ-2')], [story('DOJ-1')]],
     });
     const lines: string[] = [];
 
-    const { stories } = await storiesFetch({
+    const result = await storiesFetch({
       team: 'DOJ',
       column: 'Done',
       linear,
       narrate: (line) => lines.push(line),
     });
 
-    expect(stories.map((entry) => entry.identifier)).toEqual(['DOJ-1', 'DOJ-2', 'DOJ-10']);
+    expect(result).toEqual({ stories: [story('DOJ-1'), story('DOJ-2'), story('DOJ-10')] });
     expect(lines).toEqual(['page 1: 2 stories', 'page 2: 1 stories']);
+  });
+
+  it('stops when the team is unknown, before any page', async () => {
+    const linear = LinearWrapper.createNull({ pages: [[story('DOJ-1')]] });
+    const lines: string[] = [];
+
+    const result = await storiesFetch({
+      team: 'DOJ',
+      column: 'Done',
+      linear,
+      narrate: (line) => lines.push(line),
+    });
+
+    expect(result).toEqual({ stopped: 'no team with key DOJ' });
+    expect(lines).toEqual([]);
+  });
+
+  it('stops on an unknown column, naming the real ones', async () => {
+    const linear = LinearWrapper.createNull({
+      teams: { DOJ: { id: 'team-uuid', columns: ['Backlog', 'In Progress', 'Done'] } },
+    });
+
+    const result = await storiesFetch({
+      team: 'DOJ',
+      column: 'InProgress',
+      linear,
+      narrate: () => {},
+    });
+
+    expect(result).toEqual({
+      stopped: 'no column "InProgress" in DOJ (it has: Backlog, In Progress, Done)',
+    });
   });
 });
 
 describe('storiesArchive', () => {
+  const doneBoard = { teams: { DOJ: { id: 'team-uuid', columns: ['Done'] } } };
+
   const runArchive = ({
-    linear = LinearWrapper.createNull(),
+    linear = LinearWrapper.createNull(doneBoard),
+    column = 'Done',
     confirm = (_question: string) => Promise.resolve(true),
     narrate = (_line: string) => {},
     batchSize = 25,
-  } = {}) => storiesArchive({ team: 'DOJ', column: 'Done', linear, confirm, narrate, batchSize });
+  } = {}) => storiesArchive({ team: 'DOJ', column, linear, confirm, narrate, batchSize });
 
   it('archives page after page until the column comes back empty', async () => {
-    const linear = LinearWrapper.createNull({ idRounds: [refs(3), refs(2, 3), []] });
+    const linear = LinearWrapper.createNull({ ...doneBoard, idRounds: [refs(3), refs(2, 3), []] });
     const archives = linear.trackArchives();
     const lines: string[] = [];
 
@@ -72,7 +108,7 @@ describe('storiesArchive', () => {
   });
 
   it('asks first, naming the count, and stops on no', async () => {
-    const linear = LinearWrapper.createNull({ idRounds: [refs(3)] });
+    const linear = LinearWrapper.createNull({ ...doneBoard, idRounds: [refs(3)] });
     const archives = linear.trackArchives();
     const questions: string[] = [];
 
@@ -90,7 +126,7 @@ describe('storiesArchive', () => {
   });
 
   it('calls a full first page 100 or more', async () => {
-    const linear = LinearWrapper.createNull({ idRounds: [refs(100), []] });
+    const linear = LinearWrapper.createNull({ ...doneBoard, idRounds: [refs(100), []] });
     const questions: string[] = [];
 
     await runArchive({
@@ -122,11 +158,48 @@ describe('storiesArchive', () => {
   });
 
   it('stops when a request falls short instead of spinning', async () => {
-    const linear = LinearWrapper.createNull({ idRounds: [refs(2)], archiveRounds: [1] });
+    const linear = LinearWrapper.createNull({
+      ...doneBoard,
+      idRounds: [refs(2)],
+      archiveRounds: [1],
+    });
 
     const result = await runArchive({ linear });
 
     expect(result).toEqual({ stopped: 'archive fell short: 1 of 2 in one request' });
+  });
+
+  it('stops when the team is unknown, before asking', async () => {
+    const linear = LinearWrapper.createNull({ idRounds: [refs(3)] });
+    const archives = linear.trackArchives();
+    const questions: string[] = [];
+
+    const result = await runArchive({
+      linear,
+      confirm: (question) => {
+        questions.push(question);
+        return Promise.resolve(true);
+      },
+    });
+
+    expect(result).toEqual({ stopped: 'no team with key DOJ' });
+    expect(questions).toEqual([]);
+    expect(archives.data).toEqual([]);
+  });
+
+  it('stops on an unknown column, naming the real ones', async () => {
+    const linear = LinearWrapper.createNull({
+      teams: { DOJ: { id: 'team-uuid', columns: ['Backlog', 'In Progress', 'Done'] } },
+      idRounds: [refs(3)],
+    });
+    const archives = linear.trackArchives();
+
+    const result = await runArchive({ linear, column: 'InProgress' });
+
+    expect(result).toEqual({
+      stopped: 'no column "InProgress" in DOJ (it has: Backlog, In Progress, Done)',
+    });
+    expect(archives.data).toEqual([]);
   });
 });
 
@@ -143,14 +216,14 @@ describe('storiesCreate', () => {
   const runCreate = ({
     team = 'DOJ',
     stories = backlog,
-    linear = LinearWrapper.createNull({ teams: { DOJ: 'team-uuid' } }),
+    linear = LinearWrapper.createNull({ teams: { DOJ: { id: 'team-uuid', columns: [] } } }),
     confirm = (_question: string) => Promise.resolve(true),
     narrate = (_line: string) => {},
     dryRun = false,
   } = {}) => storiesCreate({ team, backlog: stories, linear, confirm, narrate, dryRun });
 
   it('creates the backlog depth first, children under their parent', async () => {
-    const linear = LinearWrapper.createNull({ teams: { DOJ: 'team-uuid' } });
+    const linear = LinearWrapper.createNull({ teams: { DOJ: { id: 'team-uuid', columns: [] } } });
     const creates = linear.trackCreates();
     const lines: string[] = [];
 
@@ -198,7 +271,7 @@ describe('storiesCreate', () => {
   });
 
   it('asks first, naming the count, and stops on no', async () => {
-    const linear = LinearWrapper.createNull({ teams: { DOJ: 'team-uuid' } });
+    const linear = LinearWrapper.createNull({ teams: { DOJ: { id: 'team-uuid', columns: [] } } });
     const creates = linear.trackCreates();
     const questions: string[] = [];
 
