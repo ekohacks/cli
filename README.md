@@ -19,6 +19,7 @@ The fourth command is `ekohacks gate check`, specified in [`stories/16-gate-chec
 ## How this is built
 
 - A tested core policy behind nullable infrastructure, in the style of [James Shore's Testing Without Mocks](https://www.jamesshore.com/v2/projects/nullables): real wrappers around `git`, `gh` and `npm`, each with a `createNull()` that answers with configurable responses and records what was asked of it. No mocks, no spies.
+- Every wrapper with a narrow test also has a contract list, `tests/infrastructure/*Contract.ts`: one list of behaviour that the unit file runs on the null and the integration file runs on the real, so the null cannot quietly drift from the thing it stands in for (ADR 0023, rule three). `ekohacks gate check` run here exits 0.
 - The CLI layer stays thin. Everything worth testing lives below it.
 - TypeScript on Node 24, tests with Vitest, nothing bundled.
 - The gate is one command, `npm run gate`: typecheck, format check and the fast suite, the same command the pre-push hook and CI run. CI then adds the integration tests and the package smoke. The contract is ADR 0023 in the observatory repository.
