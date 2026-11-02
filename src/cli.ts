@@ -2,6 +2,7 @@
 // The thin shell: read the repo's files, wire the real wrappers, print one line per
 // check and per step, exit 0 only when the command ran to its end. Everything worth
 // testing lives below.
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -21,6 +22,7 @@ import {
   openDraftPr,
   type DocsFile,
 } from './logic/docs.ts';
+import { gateCheck, type RepoFile } from './logic/gate.ts';
 import { preflight } from './logic/preflight.ts';
 import { release } from './logic/release.ts';
 import { ship } from './logic/ship.ts';
@@ -38,6 +40,7 @@ const USAGE = [
   '       ekohacks docs check',
   '       ekohacks docs sync [--dry-run]',
   '       ekohacks docs draft [--yes]',
+  '       ekohacks gate check',
   '       ekohacks stories fetch <team> [<column> [out.json]]',
   '       ekohacks stories archive <team> <column> [--yes]',
   '       ekohacks stories create <team> <backlog.json> [--yes] [--dry-run]',
@@ -174,6 +177,57 @@ if (command === 'docs') {
     files,
     runner: ProcessRunner.create(),
   });
+  printChecks(report.checks);
+  process.exit(report.checks.every((check) => check.passed) ? 0 : 1);
+}
+
+if (command === 'gate') {
+  if (rest.length !== 1 || rest[0] !== 'check') {
+    console.error(USAGE);
+    process.exit(2);
+  }
+  // The files the contract is written in, read where they exist, plus every tracked path
+  // for the contract-list rule. The policy judges; nothing here runs the gate.
+  const files: RepoFile[] = [];
+  const readIf = (path: string) => {
+    if (existsSync(path)) {
+      files.push({ path, content: readFileSync(path, 'utf8') });
+    }
+  };
+  for (const path of [
+    'package.json',
+    'README.md',
+    '.husky/pre-push',
+    '.pre-commit-config.yaml',
+    'gate.sh',
+    'backend/gate.sh',
+    'pytest.ini',
+    'pyproject.toml',
+    'vitest.config.ts',
+    'vitest.config.mts',
+    'vitest.config.js',
+  ]) {
+    readIf(path);
+  }
+  for (const dir of ['.github/workflows', '.forgejo/workflows', '.gitea/workflows']) {
+    if (existsSync(dir)) {
+      for (const entry of readdirSync(dir).sort()) {
+        if (/\.ya?ml$/.test(entry)) {
+          readIf(`${dir}/${entry}`);
+        }
+      }
+    }
+  }
+  let paths: string[];
+  try {
+    paths = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' })
+      .split('\0')
+      .filter((path) => path !== '');
+  } catch {
+    console.error('stopped: not a git repository');
+    process.exit(1);
+  }
+  const report = gateCheck({ files, paths });
   printChecks(report.checks);
   process.exit(report.checks.every((check) => check.passed) ? 0 : 1);
 }
