@@ -22,7 +22,7 @@
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format:check": "git ls-files -z | xargs -0 prettier --check --ignore-unknown",
     "prepare": "husky",
     "prepack": "npm run build",
     "prepublishOnly": "npm run typecheck && npm test",
