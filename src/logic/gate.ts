@@ -82,9 +82,13 @@ const fail = (name: string, reason: string): Check => ({ name, passed: false, re
 
 const quoted = (lines: string[]) => lines.map((line) => `"${line}"`).join(', ');
 
+// Shell text as lines, with a backslash continuation joined to the line it continues, so a
+// command split for width is judged whole.
+const linesOf = (text: string) => text.replace(/\\\n\s*/g, ' ').split('\n');
+
 const wholeSuite = (gate: Gate): Check => {
   const name = 'gate runs the whole suite';
-  const shortcut = gate.text.split('\n').find((line) => line.includes('--changed'));
+  const shortcut = linesOf(gate.text).find((line) => line.includes('--changed'));
   const suite = gate.kind === 'node' ? 'npm test' : 'pytest';
   if (shortcut !== undefined) {
     return fail(name, `the gate runs "${shortcut.trim()}"; the whole suite is ${suite}`);
@@ -129,7 +133,7 @@ const checksFormatting = (gate: Gate): Check => {
 const readsTrackedFiles = (gate: Gate): Check => {
   const name = 'format check reads tracked files';
   if (gate.kind === 'node') {
-    const everything = gate.text.split('\n').find((line) => /prettier --check \.(\s|$)/.test(line));
+    const everything = linesOf(gate.text).find((line) => /prettier --check \.(\s|$)/.test(line));
     return everything === undefined
       ? pass(name)
       : fail(
@@ -137,7 +141,7 @@ const readsTrackedFiles = (gate: Gate): Check => {
           `format:check runs "${everything.trim()}", which reads untracked files too; read tracked files: ${PRETTIER_TRACKED}`,
         );
   }
-  const format = gate.text.split('\n').find((line) => line.includes('ruff format --check'));
+  const format = linesOf(gate.text).find((line) => line.includes('ruff format --check'));
   return format === undefined || format.includes('git ls-files')
     ? pass(name)
     : fail(
