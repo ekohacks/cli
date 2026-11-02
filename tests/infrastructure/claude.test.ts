@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { ClaudeWrapper } from '../../src/infrastructure/claude.ts';
+import { claudeContract } from './claudeContract.ts';
 
-describe('ClaudeWrapper', () => {
-  it('answers the configured response and records the prompt it was asked', async () => {
-    const claude = ClaudeWrapper.createNull({ responses: ['the drafted prose'] });
-    const prompts = claude.trackPrompts();
+describe('ClaudeWrapper (nulled)', () => {
+  claudeContract((responses) => Promise.resolve(ClaudeWrapper.createNull({ responses })));
 
-    const text = await claude.complete('draft the ekolite/testing page');
+  it('answers the configured responses in order, repeating the last', async () => {
+    const claude = ClaudeWrapper.createNull({ responses: ['first', 'second'] });
 
-    expect(text).toBe('the drafted prose');
-    expect(prompts.data).toEqual(['draft the ekolite/testing page']);
+    expect(await claude.complete('one')).toBe('first');
+    expect(await claude.complete('two')).toBe('second');
+    expect(await claude.complete('three')).toBe('second');
   });
 });

@@ -3,8 +3,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { NpmWrapper } from '../../src/infrastructure/npm.ts';
+import { npmContract } from './npmContract.ts';
 
 const dirs: string[] = [];
+
+// A throwaway package for the real npm to bump; the registry answers for itself.
+const throwawayPackage = () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ekohacks-npm-'));
+  dirs.push(dir);
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'throwaway', version: '0.4.0' }));
+  return dir;
+};
 
 afterEach(() => {
   for (const dir of dirs.splice(0)) {
@@ -13,28 +22,12 @@ afterEach(() => {
 });
 
 describe('NpmWrapper (integration)', () => {
-  it('answers the published version of a real package', async () => {
-    const npm = NpmWrapper.create();
+  npmContract(() => Promise.resolve(NpmWrapper.create({ cwd: throwawayPackage() })));
 
-    expect(await npm.publishedVersion('ekolite')).toMatch(/^\d+\.\d+\.\d+$/);
-  });
+  it('writes the bumped version into the real package.json', async () => {
+    const dir = throwawayPackage();
 
-  it('answers undefined for a package the registry does not know', async () => {
-    const npm = NpmWrapper.create();
-
-    expect(await npm.publishedVersion('ekohacks-surely-never-published-zqx')).toBeUndefined();
-  });
-
-  it('bumps the version of a real package.json', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'ekohacks-npm-'));
-    dirs.push(dir);
-    writeFileSync(
-      join(dir, 'package.json'),
-      JSON.stringify({ name: 'throwaway', version: '0.4.0' }),
-    );
-
-    const npm = NpmWrapper.create({ cwd: dir });
-    await npm.bumpVersion('0.5.0');
+    await NpmWrapper.create({ cwd: dir }).bumpVersion('0.5.0');
 
     const bumped = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as {
       version: string;

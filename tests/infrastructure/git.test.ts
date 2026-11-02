@@ -1,50 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe } from 'vitest';
 import { GitWrapper } from '../../src/infrastructure/git.ts';
+import { gitContract } from './gitContract.ts';
 
 describe('GitWrapper (nulled)', () => {
-  it('answers the configured current branch', async () => {
-    const git = GitWrapper.createNull({ branch: 'release/v0.5.0' });
-
-    expect(await git.currentBranch()).toBe('release/v0.5.0');
-  });
-
-  it('answers the configured working tree state', async () => {
-    const git = GitWrapper.createNull({ dirty: true });
-
-    expect(await git.workingTreeClean()).toBe(false);
-  });
-
-  it('answers the configured origin sync state', async () => {
-    const git = GitWrapper.createNull({ behindOrigin: true });
-
-    expect(await git.mainInSyncWithOrigin()).toBe(false);
-  });
-
-  it('answers the configured version on main', async () => {
-    const git = GitWrapper.createNull({ versionOnMain: '0.4.1' });
-
-    expect(await git.versionOnMain()).toBe('0.4.1');
-  });
-
-  it('answers whether a branch exists', async () => {
-    const git = GitWrapper.createNull({ existingBranches: ['release/v0.5.0'] });
-
-    expect(await git.branchExists('release/v0.5.0')).toBe(true);
-    expect(await git.branchExists('release/v9.9.9')).toBe(false);
-  });
-
-  it('records branch, commit and push on its output tracker', async () => {
-    const git = GitWrapper.createNull();
-    const actions = git.trackActions();
-
-    await git.createBranch('release/v0.5.0');
-    await git.commitAll('chore: release 0.5.0');
-    await git.push();
-
-    expect(actions.data).toEqual([
-      { action: 'createBranch', branch: 'release/v0.5.0' },
-      { action: 'commitAll', message: 'chore: release 0.5.0' },
-      { action: 'push' },
-    ]);
-  });
+  gitContract((state) => Promise.resolve(GitWrapper.createNull(state)));
 });

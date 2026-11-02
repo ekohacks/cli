@@ -1,11 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe } from 'vitest';
 import { ProcessRunner } from '../../src/infrastructure/process.ts';
+import { processRunnerContract } from './processContract.ts';
 
+// The real side: every command in the contract runs through a real shell. The configured
+// answers are what the null is handed; here they are ignored and the shell answers.
 describe('ProcessRunner (integration)', () => {
-  it('answers the exit code of a real command', async () => {
-    const runner = ProcessRunner.create();
-
-    expect(await runner.run('node -e "process.exit(3)"')).toEqual({ exitCode: 3 });
-    expect(await runner.run('node -e "process.exit(0)"')).toEqual({ exitCode: 0 });
-  });
+  processRunnerContract(() => ProcessRunner.create());
 });
