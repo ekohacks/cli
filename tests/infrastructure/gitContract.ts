@@ -4,7 +4,9 @@ import type { GitWrapper } from '../../src/infrastructure/git.ts';
 // The behaviour every GitWrapper must honour, real or null (observatory ADR 0023, rule
 // three). `make` builds a wrapper over a repository in the given state: the real side makes
 // a throwaway repository with a bare origin and puts it in that state; the null is handed
-// the state and must answer as that repository would, including after its own writes.
+// the state and must answer as that repository would, including after its own writes. What
+// the null cannot see is a file another wrapper or the shell wrote, so whether a commit has
+// anything to commit is the real side's own test, not the contract's.
 export interface RepoState {
   branch?: string;
   dirty?: boolean;
@@ -63,15 +65,6 @@ export function gitContract(make: MakeGit): void {
 
     expect(await git.workingTreeClean()).toBe(true);
     expect(actions.data).toEqual([{ action: 'commitAll', message: 'chore: release 0.5.0' }]);
-  });
-
-  it('refuses to commit a clean tree and records nothing', async () => {
-    const git = await make({});
-    const actions = git.trackActions();
-
-    await expect(git.commitAll('chore: nothing')).rejects.toThrow(/nothing to commit/);
-
-    expect(actions.data).toEqual([]);
   });
 
   it('pushes the current branch to origin and records it', async () => {

@@ -21,6 +21,10 @@ export class GitWrapper {
     });
   }
 
+  // The null is a repository in a given state, and it keeps that state the way a repository
+  // would: a created branch becomes the current one and exists, a commit cleans the tree. It
+  // cannot see a file npm or the shell wrote, so it never refuses a commit for having nothing
+  // to commit; that is the real side's own test.
   static createNull({
     branch = 'main',
     dirty = false,
@@ -34,17 +38,36 @@ export class GitWrapper {
     existingBranches?: string[];
     versionOnMain?: string;
   } = {}): GitWrapper {
-    const outputs: Record<string, string> = {
-      'rev-parse --abbrev-ref HEAD': `${branch}\n`,
-      'status --porcelain': dirty ? ' M some-file.ts\n' : '',
-      'rev-parse main': behindOrigin ? 'local\n' : 'shared\n',
-      'rev-parse origin/main': 'shared\n',
-      'show origin/main:package.json': `${JSON.stringify({ version: versionOnMain })}\n`,
-    };
-    for (const existing of existingBranches) {
-      outputs[`branch --list ${existing}`] = `  ${existing}\n`;
-    }
-    return new GitWrapper((args) => Promise.resolve(outputs[args.join(' ')] ?? ''));
+    const state = { branch, dirty, branches: new Set(['main', branch, ...existingBranches]) };
+    return new GitWrapper((args) => {
+      const [command, ...rest] = args;
+      if (command === 'rev-parse' && rest[0] === '--abbrev-ref') {
+        return Promise.resolve(`${state.branch}\n`);
+      }
+      if (command === 'rev-parse') {
+        return Promise.resolve(rest[0] === 'main' && behindOrigin ? 'local\n' : 'shared\n');
+      }
+      if (command === 'status') {
+        return Promise.resolve(state.dirty ? ' M some-file.ts\n' : '');
+      }
+      if (command === 'branch') {
+        const name = rest[1] ?? '';
+        return Promise.resolve(state.branches.has(name) ? `  ${name}\n` : '');
+      }
+      if (command === 'show') {
+        return Promise.resolve(`${JSON.stringify({ version: versionOnMain })}\n`);
+      }
+      if (command === 'switch') {
+        state.branch = rest[1] ?? state.branch;
+        state.branches.add(state.branch);
+        return Promise.resolve('');
+      }
+      if (command === 'commit') {
+        state.dirty = false;
+        return Promise.resolve('');
+      }
+      return Promise.resolve('');
+    });
   }
 
   private readonly runGit: RunGit;

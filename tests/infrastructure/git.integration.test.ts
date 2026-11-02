@@ -63,6 +63,16 @@ afterEach(() => {
 describe('GitWrapper (integration)', () => {
   gitContract((state) => Promise.resolve(GitWrapper.create({ cwd: throwawayRepo(state).dir })));
 
+  it('refuses to commit a clean tree, as git does', async () => {
+    const { dir } = throwawayRepo({});
+    const git = GitWrapper.create({ cwd: dir });
+    const actions = git.trackActions();
+
+    await expect(git.commitAll('chore: nothing')).rejects.toThrow(/git commit/);
+
+    expect(actions.data).toEqual([]);
+  });
+
   it('lands a pushed branch on the real origin', async () => {
     const { dir, bare } = throwawayRepo({ dirty: true });
     const git = GitWrapper.create({ cwd: dir });

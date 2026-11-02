@@ -8,11 +8,14 @@ type PublishedVersions = Record<string, string | string[]>;
 // bottom layer: create() shells out to npm, createNull() answers from a configured map of
 // package name to published version, so the null never touches the network.
 export class NpmWrapper {
+  // The wrapper reads npm's stderr to tell a missing package from a failure, so it pins the
+  // log level itself: a parent `npm run -s` would otherwise silence the child through the
+  // environment and leave an empty stderr to read.
   static create({ cwd = process.cwd() }: { cwd?: string } = {}): NpmWrapper {
     return new NpmWrapper(
       (args) =>
         new Promise((resolve) => {
-          execFile('npm', args, { cwd }, (error, stdout, stderr) => {
+          execFile('npm', [...args, '--loglevel=error'], { cwd }, (error, stdout, stderr) => {
             const exitCode = error === null ? 0 : 1;
             resolve({ exitCode, stdout, stderr });
           });
@@ -26,7 +29,15 @@ export class NpmWrapper {
     const rounds: Record<string, number> = {};
     return new NpmWrapper((args) => {
       if (args[0] === 'version') {
-        return Promise.resolve({ exitCode: 0, stdout: `v${args[1]}\n`, stderr: '' });
+        const version = args[1] ?? '';
+        // npm refuses what is not a version; so does the null, in npm's words.
+        return /^\d+\.\d+\.\d+/.test(version)
+          ? Promise.resolve({ exitCode: 0, stdout: `v${version}\n`, stderr: '' })
+          : Promise.resolve({
+              exitCode: 1,
+              stdout: '',
+              stderr: `npm error Invalid version: "${version}"`,
+            });
       }
       const pkg = args[1] ?? '';
       const configured = publishedVersions[pkg];
