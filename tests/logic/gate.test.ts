@@ -367,6 +367,25 @@ describe('gate check', () => {
     });
   });
 
+  it('reads a shell line continued with a backslash as one line', () => {
+    const gate = {
+      path: 'backend/gate.sh',
+      content: [
+        "git ls-files -z -- 'src/*.py' | xargs -0 ruff check",
+        "git ls-files -z -- 'src/*.py' 'src/*.md' \\",
+        '  | xargs -0 ruff format --check',
+        'pytest tests -q',
+      ].join('\n'),
+    };
+
+    const report = gateCheck({ files: replacing(PYTHON_FILES, gate), paths: [] });
+
+    expect(check(report, 'format check reads tracked files')).toEqual({
+      name: 'format check reads tracked files',
+      passed: true,
+    });
+  });
+
   it('fails a Python gate whose pre-commit hook does not run it on push', () => {
     const config = {
       path: '.pre-commit-config.yaml',
